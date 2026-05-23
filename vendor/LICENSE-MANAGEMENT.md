@@ -94,6 +94,11 @@ openssl rsa -in vendor_private_key.pem -text -noout | head -1
     "max_users": "integer (required, >= 1)",
     "max_managed_resources": "integer (required, >= 1)"
   },
+  "cloud_providers": {
+    "aws": "integer (required, >= 0, 0 = disabled)",
+    "azure": "integer (required, >= 0, 0 = disabled)",
+    "gcp": "integer (required, >= 0, 0 = disabled)"
+  },
   "features": ["string[] (required, list of enabled feature keys)"],
   "permitted_versions": {
     "min": "string (required, semver: MAJOR.MINOR.PATCH)",
@@ -123,6 +128,9 @@ openssl rsa -in vendor_private_key.pem -text -noout | head -1
 | `expires_at` | datetime | Valid ISO 8601 with timezone, must be after `issued_at` |
 | `limits.max_users` | integer | >= 1 |
 | `limits.max_managed_resources` | integer | >= 1 |
+| `cloud_providers.aws` | integer | >= 0 (0 = AWS disabled) |
+| `cloud_providers.azure` | integer | >= 0 (0 = Azure disabled) |
+| `cloud_providers.gcp` | integer | >= 0 (0 = GCP disabled) |
 | `features` | string[] | Non-empty list of valid feature keys |
 | `permitted_versions.min` | string | Valid semver (MAJOR.MINOR.PATCH) |
 | `permitted_versions.max` | string | Valid semver, must be >= `min` |
@@ -258,13 +266,18 @@ if __name__ == "__main__":
         features=[
             "catalog",
             "workflows",
-            "cost_management",
-            "policy_governance",
-            "ai_assistant",
-            "sso",
-            "multi_tenancy",
-            "budgets",
             "scheduled_jobs",
+            "terraform",
+            "cost_management",
+            "reports",
+            "policy_governance",
+            "budgets",
+            "event_automation",
+            "webhooks",
+            "cloud_accounts",
+            "multi_tenancy",
+            "sso",
+            "ai_assistant",
         ],
         duration_days=365,
         support_tier="premium",
@@ -308,8 +321,10 @@ python scripts/license/validate_license.py license_cust_acme_789.json
 | Add features | `features` | Append new feature keys |
 | Increase user limit | `limits.max_users` | Update to new value |
 | Increase resource limit | `limits.max_managed_resources` | Update to new value |
+| Change cloud provider limits | `cloud_providers.aws/azure/gcp` | Set new account limits per provider |
+| Enable a cloud provider | `cloud_providers.<provider>` | Set from 0 to desired limit |
 | Extend expiry | `expires_at` | Set new expiry date |
-| Upgrade tier | `type`, `features`, `limits` | Update all tier-related fields |
+| Upgrade tier | `type`, `features`, `limits`, `cloud_providers` | Update all tier-related fields |
 | Change deployment model | `environment`, `deployment_model`, `vendor_verification` | Both fields must match |
 | Expand version range | `permitted_versions.max` | Extend to cover new major version |
 
@@ -355,6 +370,7 @@ The application detects license file changes within **60 seconds** via SHA-256 h
 | Duration | 30 days |
 | Max Users | 10 |
 | Max Resources | 100 |
+| Cloud Providers | AWS: 1, Azure: 0, GCP: 0 |
 | Support Tier | basic |
 | Vendor Verification | enabled |
 
@@ -362,6 +378,7 @@ The application detects license file changes within **60 seconds** via SHA-256 h
 - `catalog`
 - `workflows`
 - `cost_management`
+- `cloud_accounts`
 
 ### Standard
 
@@ -370,16 +387,22 @@ The application detects license file changes within **60 seconds** via SHA-256 h
 | Duration | 12 months (renewable) |
 | Max Users | 50–200 |
 | Max Resources | 1,000–5,000 |
+| Cloud Providers | AWS: 3, Azure: 2, GCP: 2 |
 | Support Tier | standard |
 | Vendor Verification | per deployment model |
 
 **Included Features:**
 - `catalog`
 - `workflows`
+- `scheduled_jobs`
+- `terraform`
 - `cost_management`
+- `reports`
 - `policy_governance`
 - `budgets`
-- `scheduled_jobs`
+- `event_automation`
+- `webhooks`
+- `cloud_accounts`
 
 ### Enterprise
 
@@ -388,19 +411,25 @@ The application detects license file changes within **60 seconds** via SHA-256 h
 | Duration | 12–36 months (renewable) |
 | Max Users | 100–unlimited |
 | Max Resources | 5,000–unlimited |
+| Cloud Providers | AWS: 10, Azure: 10, GCP: 10 (or custom) |
 | Support Tier | premium |
 | Vendor Verification | per deployment model |
 
 **Included Features (all):**
 - `catalog`
 - `workflows`
-- `cost_management`
-- `policy_governance`
-- `ai_assistant`
-- `sso`
-- `multi_tenancy`
-- `budgets`
 - `scheduled_jobs`
+- `terraform`
+- `cost_management`
+- `reports`
+- `policy_governance`
+- `budgets`
+- `event_automation`
+- `webhooks`
+- `cloud_accounts`
+- `multi_tenancy`
+- `sso`
+- `ai_assistant`
 
 ---
 
@@ -409,14 +438,19 @@ The application detects license file changes within **60 seconds** via SHA-256 h
 | Feature Key | CMP Capability | Minimum Tier |
 |-------------|---------------|--------------|
 | `catalog` | Self-service catalog for provisioning resources | Trial |
-| `workflows` | Workflow automation and orchestration | Trial |
-| `cost_management` | Cost tracking, analysis, and optimization | Trial |
-| `policy_governance` | Policy engine for compliance and governance | Standard |
+| `workflows` | Workflow automation and orchestration (tasks, flows, executions) | Trial |
+| `scheduled_jobs` | Scheduled/recurring automation jobs | Standard |
+| `terraform` | Terraform templates, workspaces, drift detection, state backend | Standard |
+| `cost_management` | Cost tracking, models, cloud pricing, analytics | Trial |
+| `reports` | Reports and analytics dashboards | Standard |
+| `policy_governance` | Policy engine, quotas, approval workflows | Standard |
 | `budgets` | Budget management and alerts | Standard |
-| `scheduled_jobs` | Scheduled task execution | Standard |
-| `ai_assistant` | AI-powered assistant (Gemini integration) | Enterprise |
-| `sso` | Single Sign-On integration (SAML/OIDC) | Enterprise |
+| `event_automation` | Event-driven automation rules + event log | Standard |
+| `webhooks` | Inbound webhook endpoints | Standard |
+| `cloud_accounts` | Cloud account management (AWS/Azure/GCP credential CRUD) | Trial |
 | `multi_tenancy` | Multi-tenant isolation and management | Enterprise |
+| `sso` | Single Sign-On integration (OIDC/SAML) | Enterprise |
+| `ai_assistant` | AI-powered assistant (Gemini integration) | Enterprise |
 
 ### Feature Gating Behavior
 

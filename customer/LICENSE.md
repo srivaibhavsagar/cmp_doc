@@ -33,6 +33,7 @@ Your CMP license is a cryptographically signed JSON file (`license.json`) that d
 | **Features** | List of CMP features you're licensed to use |
 | **User Limit** | Maximum number of users allowed in the system |
 | **Resource Limit** | Maximum number of managed cloud resources |
+| **Cloud Providers** | Which cloud providers are enabled and how many accounts per provider |
 | **Deployment Model** | Must match your `DEPLOYMENT_MODEL` setting |
 | **Permitted Versions** | Range of CMP versions this license covers |
 | **Support Tier** | `basic`, `standard`, or `premium` |
@@ -120,18 +121,28 @@ Response:
   "features_enabled": [
     "catalog",
     "workflows",
+    "scheduled_jobs",
+    "terraform",
     "cost_management",
+    "reports",
     "policy_governance",
-    "ai_assistant",
-    "sso",
     "multi_tenancy",
     "budgets",
-    "scheduled_jobs"
+    "event_automation",
+    "webhooks",
+    "cloud_accounts",
+    "sso",
+    "ai_assistant"
   ],
   "current_users": 47,
   "max_users": 500,
   "current_resources": 1250,
   "max_resources": 10000,
+  "cloud_providers": {
+    "aws": 10,
+    "azure": 10,
+    "gcp": 10
+  },
   "deployment_model": "on-premises",
   "support_tier": "premium"
 }
@@ -194,13 +205,34 @@ If a user attempts to access a feature not included in the license:
 |-------------|-------------|----------|------------|
 | `catalog` | Self-service resource catalog | ✓ | ✓ |
 | `workflows` | Workflow automation engine | ✓ | ✓ |
-| `cost_management` | Cost tracking and optimization | ✓ | ✓ |
-| `policy_governance` | Policy engine and compliance | — | ✓ |
-| `ai_assistant` | AI-powered operations assistant | — | ✓ |
-| `sso` | Single sign-on (SAML) | — | ✓ |
-| `multi_tenancy` | Multi-tenant isolation | — | ✓ |
-| `budgets` | Budget management and alerts | ✓ | ✓ |
 | `scheduled_jobs` | Scheduled automation tasks | ✓ | ✓ |
+| `terraform` | Terraform provisioning, workspaces, drift, state backend | — | ✓ |
+| `cost_management` | Cost tracking and optimization | ✓ | ✓ |
+| `reports` | Reports and analytics dashboards | ✓ | ✓ |
+| `policy_governance` | Policy engine and compliance | — | ✓ |
+| `budgets` | Budget management and alerts | ✓ | ✓ |
+| `event_automation` | Event-driven automation + event log | — | ✓ |
+| `webhooks` | Inbound webhook endpoints | ✓ | ✓ |
+| `cloud_accounts` | Cloud account management (AWS/Azure/GCP) | ✓ | ✓ |
+| `multi_tenancy` | Multi-tenant isolation | — | ✓ |
+| `sso` | Single sign-on (OIDC/SAML) | — | ✓ |
+| `ai_assistant` | AI-powered operations assistant | — | ✓ |
+
+### Cloud Provider Limits
+
+Your license also controls which cloud providers you can connect and how many accounts per provider:
+
+```json
+"cloud_providers": {
+  "aws": 2,
+  "azure": 2,
+  "gcp": 1
+}
+```
+
+- A value of `0` means the provider is disabled (you cannot add accounts for it)
+- A value > 0 is the maximum number of accounts you can add for that provider
+- Existing accounts are not removed if limits are reduced — only new account creation is blocked
 
 ---
 
@@ -227,6 +259,10 @@ When you reach a limit:
   - Error: `"User limit exceeded. Licensed maximum: 500 users. Contact your administrator for a license upgrade."`
 - **Resource limit:** New resource provisioning is blocked. Existing resources continue to be managed.
   - Error: `"Resource limit exceeded. Licensed maximum: 10000 resources. Contact your administrator for a license upgrade."`
+- **Cloud provider account limit:** New account creation for that provider is blocked. Existing accounts continue to work.
+  - Error: `"Account limit for 'aws' reached: current count (2) has reached the licensed maximum (2). Contact Autonimbus to upgrade."`
+- **Cloud provider disabled (limit = 0):** Cannot add accounts for that provider at all.
+  - Error: `"Cloud provider 'gcp' is not enabled in your license. Contact Autonimbus to upgrade."`
 
 ### Proactive Monitoring
 

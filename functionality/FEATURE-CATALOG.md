@@ -15,16 +15,19 @@ CMP uses feature keys in the license to control what capabilities are available.
 | License Key | Display Name | Tier | What It Covers |
 |-------------|-------------|------|----------------|
 | `catalog` | Service Catalog | Trial+ | Self-service catalog, templates, provisioning requests |
-| `workflows` | Workflow Automation | Trial+ | Flows, executions, tasks, scheduled jobs, Terraform |
-| `cost_management` | Cost Management | Trial+ | Cost models, cloud pricing, reports, analytics |
+| `workflows` | Workflow Automation | Trial+ | Tasks, workflows, flows, executions |
+| `scheduled_jobs` | Scheduled Jobs | Standard+ | Cron-based recurring automation |
+| `terraform` | Terraform Provisioning | Standard+ | Templates, workspaces, drift detection, state backend |
+| `cost_management` | Cost Management | Trial+ | Cost models, cloud pricing, cost analytics, live projections |
+| `reports` | Reports & Analytics | Standard+ | Platform reports and analytics dashboards |
 | `policy_governance` | Policy Governance | Standard+ | Policies, quotas, approvals, compliance rules |
-| `ai_assistant` | AI Assistant | Enterprise | AI chatbot, Terraform generation, natural language queries |
-| `sso` | Single Sign-On (SSO) | Enterprise | SAML/OIDC integration, SSO group mappings |
-| `multi_tenancy` | Multi-Tenancy | Enterprise | Multiple tenants, tenant switching, isolated environments |
 | `budgets` | Budget Management | Standard+ | Budget creation, alerts, threshold notifications |
-| `scheduled_jobs` | Scheduled Jobs | Standard+ | Cron-based automation, recurring tasks |
-| `event_automation` | Event Automation | Enterprise | Event-driven rules, triggers on resource/system changes |
-| `resource_actions` | Resource Actions | Standard+ | Day-2 operations: start, stop, resize, custom actions on resources |
+| `event_automation` | Event Automation | Standard+ | Event-driven rules, triggers, event log |
+| `webhooks` | Inbound Webhooks | Standard+ | Webhook endpoint configuration |
+| `cloud_accounts` | Cloud Accounts | Trial+ | AWS, Azure, GCP account management (per-provider limits) |
+| `multi_tenancy` | Multi-Tenancy | Enterprise | Multiple tenants, tenant switching, isolated environments |
+| `sso` | Single Sign-On (SSO) | Enterprise | OIDC/SAML integration, SSO group mappings |
+| `ai_assistant` | AI Assistant | Enterprise | AI chatbot, Terraform generation, natural language queries |
 
 ---
 
@@ -59,15 +62,13 @@ CMP uses feature keys in the license to control what capabilities are available.
 
 ### 2. `workflows` — Workflow Automation
 
-**What it is:** The automation engine that powers provisioning, orchestration, and scheduled operations.
+**What it is:** The automation engine that powers provisioning and orchestration.
 
 **UI Pages:**
 - `/tasks` — Task definitions (individual automation steps)
 - `/workflows` — Workflow definitions (multi-step orchestrations)
 - `/flows` — Flow designer (visual workflow builder)
 - `/executions` — Execution history and monitoring
-- `/scheduled-jobs` — Scheduled/recurring automation
-- `/events` — Event automation rules (admin only)
 
 **API Endpoints:**
 - `GET/POST /api/v1/tasks` — Task CRUD
@@ -76,16 +77,12 @@ CMP uses feature keys in the license to control what capabilities are available.
 - `GET /api/v1/executions` — List executions
 - `GET /api/v1/executions/:id` — Execution details + logs
 - `POST /api/v1/executions/:id/cancel` — Cancel execution
-- `GET/POST /api/v1/scheduled-jobs` — Scheduled job CRUD
-- `GET/POST /api/v1/events/rules` — Event automation rules
 
 **What users can do:**
 - Create automation tasks (shell scripts, Terraform, API calls)
 - Build multi-step workflows with conditions and branching
 - Design flows visually with drag-and-drop
 - Monitor execution progress and view logs
-- Schedule recurring jobs (cron-based)
-- Set up event-driven automation (trigger on resource changes)
 
 **Sub-features controlled by this key:**
 | Sub-feature | What it does |
@@ -94,8 +91,6 @@ CMP uses feature keys in the license to control what capabilities are available.
 | Workflows | Multi-step orchestrations with dependencies |
 | Flows | Visual workflow designer |
 | Executions | Run history, logs, status monitoring |
-| Scheduled Jobs | Cron-based recurring automation |
-| Terraform | Template management, workspace management, drift detection, state backend |
 
 ---
 
@@ -348,44 +343,53 @@ CMP uses feature keys in the license to control what capabilities are available.
 | `catalog` | ✓ |
 | `workflows` | ✓ |
 | `cost_management` | ✓ |
-| `policy_governance` | ✗ |
-| `ai_assistant` | ✗ |
-| `sso` | ✗ |
-| `multi_tenancy` | ✗ |
-| `budgets` | ✗ |
+| `cloud_accounts` | ✓ (AWS: 1 only) |
 | `scheduled_jobs` | ✗ |
+| `terraform` | ✗ |
+| `reports` | ✗ |
+| `policy_governance` | ✗ |
+| `budgets` | ✗ |
 | `event_automation` | ✗ |
-| `resource_actions` | ✗ |
+| `webhooks` | ✗ |
+| `multi_tenancy` | ✗ |
+| `sso` | ✗ |
+| `ai_assistant` | ✗ |
 
 ### Standard
 | Feature | Included |
 |---------|----------|
 | `catalog` | ✓ |
 | `workflows` | ✓ |
-| `cost_management` | ✓ |
-| `policy_governance` | ✓ |
-| `ai_assistant` | ✗ |
-| `sso` | ✗ |
-| `multi_tenancy` | ✗ |
-| `budgets` | ✓ |
 | `scheduled_jobs` | ✓ |
-| `event_automation` | ✗ |
-| `resource_actions` | ✓ |
+| `terraform` | ✓ |
+| `cost_management` | ✓ |
+| `reports` | ✓ |
+| `policy_governance` | ✓ |
+| `budgets` | ✓ |
+| `event_automation` | ✓ |
+| `webhooks` | ✓ |
+| `cloud_accounts` | ✓ (AWS: 3, Azure: 2, GCP: 2) |
+| `multi_tenancy` | ✗ |
+| `sso` | ✗ |
+| `ai_assistant` | ✗ |
 
 ### Enterprise (all features)
 | Feature | Included |
 |---------|----------|
 | `catalog` | ✓ |
 | `workflows` | ✓ |
-| `cost_management` | ✓ |
-| `policy_governance` | ✓ |
-| `ai_assistant` | ✓ |
-| `sso` | ✓ |
-| `multi_tenancy` | ✓ |
-| `budgets` | ✓ |
 | `scheduled_jobs` | ✓ |
+| `terraform` | ✓ |
+| `cost_management` | ✓ |
+| `reports` | ✓ |
+| `policy_governance` | ✓ |
+| `budgets` | ✓ |
 | `event_automation` | ✓ |
-| `resource_actions` | ✓ |
+| `webhooks` | ✓ |
+| `cloud_accounts` | ✓ (AWS: 10, Azure: 10, GCP: 10) |
+| `multi_tenancy` | ✓ |
+| `sso` | ✓ |
+| `ai_assistant` | ✓ |
 
 ---
 
@@ -427,9 +431,10 @@ These features are always available regardless of license:
 | Login/logout | Authentication |
 | Profile | User self-service |
 | Health endpoints | Monitoring |
-| Resource inventory | Core functionality |
-| Credentials management | Required for cloud access |
+| Resource inventory | Core functionality (viewing resources) |
+| Resource actions | Day-2 operations on existing resources |
 | Notifications | System alerts |
+| Logging & Monitoring | Platform observability |
 
 ---
 
