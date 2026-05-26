@@ -379,6 +379,8 @@ The application detects license file changes within **60 seconds** via SHA-256 h
 - `workflows`
 - `cost_management`
 - `cloud_accounts`
+- `notifications`
+- `infrastructure`
 
 ### Standard
 
@@ -403,6 +405,9 @@ The application detects license file changes within **60 seconds** via SHA-256 h
 - `event_automation`
 - `webhooks`
 - `cloud_accounts`
+- `notifications`
+- `infrastructure`
+- `logging_monitoring`
 
 ### Enterprise
 
@@ -430,6 +435,9 @@ The application detects license file changes within **60 seconds** via SHA-256 h
 - `multi_tenancy`
 - `sso`
 - `ai_assistant`
+- `notifications`
+- `infrastructure`
+- `logging_monitoring`
 
 ---
 
@@ -447,10 +455,13 @@ The application detects license file changes within **60 seconds** via SHA-256 h
 | `budgets` | Budget management and alerts | Standard |
 | `event_automation` | Event-driven automation rules + event log | Standard |
 | `webhooks` | Inbound webhook endpoints | Standard |
-| `cloud_accounts` | Cloud account management (AWS/Azure/GCP credential CRUD) | Trial |
+| `cloud_accounts` | Cloud account management (AWS/Azure/GCP credential CRUD), resources | Trial |
 | `multi_tenancy` | Multi-tenant isolation and management | Enterprise |
 | `sso` | Single Sign-On integration (OIDC/SAML) | Enterprise |
 | `ai_assistant` | AI-powered assistant (Gemini integration) | Enterprise |
+| `notifications` | User notification center (in-app, email, Slack, Teams) | Starter |
+| `infrastructure` | Infrastructure management (resource actions, shared variables) | Starter |
+| `logging_monitoring` | Platform logging and monitoring dashboards | Standard |
 
 ### Feature Gating Behavior
 

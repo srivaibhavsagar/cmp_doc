@@ -27,11 +27,14 @@ Features not included in the license are:
 | `policy_governance` | Policy & Governance | `/policies`, `/quotas`, `/approvals` |
 | `multi_tenancy` | Multi-Tenancy | `/tenants` |
 | `budgets` | Budget Management | `/budgets` |
-| `event_automation` | Event Automation + Event Log | `/events` |
+| `event_automation` | Event Automation + Event Log | `/events`, `/event-log` |
 | `webhooks` | Inbound Webhooks | `/webhooks` |
-| `cloud_accounts` | Cloud Account Management | `/cloud` (credential CRUD — per-provider limits enforced) |
+| `cloud_accounts` | Cloud Account Management | `/cloud` (credential CRUD — per-provider limits enforced), `/credentials`, `/resources` |
 | `sso` | Single Sign-On | `/auth/sso/*` (login, callback, config, group-mappings) |
 | `ai_assistant` | AI Assistant | `/chat` |
+| `notifications` | Notifications | `/notifications` |
+| `infrastructure` | Infrastructure Management | `/resource-actions`, `/context` (shared variables) |
+| `logging_monitoring` | Logging & Monitoring | `/admin/logging` |
 
 ---
 
@@ -71,6 +74,7 @@ Enforcement happens at credential creation time. Existing accounts are not remov
 | `provisioning` | Provisioning | `workflows` |
 | `scheduled_jobs` | Scheduled Jobs | `scheduled_jobs` |
 | `terraform_provisioning` | Terraform Provisioning | `terraform` |
+| `infrastructure` | Infrastructure | `infrastructure` |
 | `event_automation` | Event Automation | `event_automation` |
 | `event_log` | Event Log | `event_automation` |
 | `reports` | Reports & Analytics | `reports` |
@@ -82,18 +86,17 @@ Enforcement happens at credential creation time. Existing accounts are not remov
 | `quotas` | Quotas | `policy_governance` |
 | `tenants` | Tenants | `multi_tenancy` |
 | `webhooks` | Inbound Webhooks | `webhooks` |
-| `credentials` | Cloud Accounts | `cloud_accounts` |
+| `credentials` | Accounts & Credentials | `cloud_accounts` |
+| `resources` | Resources | `cloud_accounts` |
 | `sso` | Single Sign-On (SSO) | `sso` |
 | `chatbot` | AI Chatbot | `ai_assistant` |
+| `notifications` | Notifications | `notifications` |
+| `logging_monitoring` | Logging & Monitoring | `logging_monitoring` |
 
 ### Core Features (always available, no license key needed)
 
 | Feature (Toggle Key) | UI Label | Notes |
 |---|---|---|
-| `resources` | Resources | View cloud resources (read-only, always available) |
-| `notifications` | Notifications | User notification center |
-| `infrastructure` | Infrastructure | Resource actions, shared variables |
-| `logging_monitoring` | Logging & Monitoring | Platform logs and monitoring dashboards |
 | `self_registration` | Self Registration | User self-registration on login page |
 | `forgot_password` | Forgot Password | Password reset flow |
 
@@ -107,7 +110,7 @@ Enforcement happens at credential creation time. Existing accounts are not remov
 
 | | |
 |---|---|
-| **License Keys** | `catalog`, `workflows`, `cloud_accounts` |
+| **License Keys** | `catalog`, `workflows`, `cloud_accounts`, `notifications`, `infrastructure` |
 | **Cloud Providers** | AWS: 1, Azure: 0, GCP: 0 |
 | **Max Users** | 5 |
 | **Max Managed Resources** | 50 |
@@ -117,12 +120,16 @@ Enforcement happens at credential creation time. Existing accounts are not remov
 - Service Catalog (browse & order)
 - Workflow Automation (tasks, workflows, flows, executions)
 - Cloud Accounts (AWS only, 1 account)
-- All core features (resources, notifications, etc.)
+- Accounts & Credentials, Resources
+- Infrastructure (resource actions, shared variables)
+- Notifications
+- All core features (self-registration, forgot password)
 
 **Not Included:**
 - Scheduled Jobs, Terraform, Reports, Cost Management
 - Policy & Governance, Multi-Tenancy, Budgets
 - Event Automation, Webhooks, SSO, AI Assistant
+- Logging & Monitoring
 - Azure / GCP accounts
 
 ---
@@ -133,7 +140,7 @@ Enforcement happens at credential creation time. Existing accounts are not remov
 
 | | |
 |---|---|
-| **License Keys** | `catalog`, `workflows`, `scheduled_jobs`, `terraform`, `cost_management`, `reports`, `policy_governance`, `budgets`, `event_automation`, `webhooks`, `cloud_accounts` |
+| **License Keys** | `catalog`, `workflows`, `scheduled_jobs`, `terraform`, `cost_management`, `reports`, `policy_governance`, `budgets`, `event_automation`, `webhooks`, `cloud_accounts`, `notifications`, `infrastructure`, `logging_monitoring` |
 | **Cloud Providers** | AWS: 3, Azure: 2, GCP: 2 |
 | **Max Users** | 25 |
 | **Max Managed Resources** | 500 |
@@ -149,6 +156,7 @@ Enforcement happens at credential creation time. Existing accounts are not remov
 - Budget Management
 - Event Automation + Event Log
 - Inbound Webhooks
+- Logging & Monitoring
 - Multi-cloud (AWS, Azure, GCP)
 
 **Not Included:**
