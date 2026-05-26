@@ -2573,33 +2573,84 @@ The AI Assistant is available via:
 - **Bot icon** in the top navigation bar
 - **Keyboard shortcut:** `⌘K` (Mac) or `Ctrl+K` (Windows/Linux)
 
-The assistant opens as a side panel where you can type questions and receive answers.
+The assistant opens as a side panel with two modes:
+- **Command Mode** — Quick actions, navigation shortcuts, and AI queries (Linear-style palette)
+- **Chat Mode** — Full conversational AI with context-aware intelligence
 
 ---
 
-### 28.2 What You Can Ask
+### 28.2 Context-Aware Intelligence
+
+The AI Assistant is a **context-aware copilot** that dynamically adapts based on:
+
+| Dimension | What It Detects | How It Helps |
+|-----------|----------------|--------------|
+| **User Role** | admin, developer, user, readonly | Only suggests actions you can perform |
+| **Current Page** | Dashboard, Catalog, Resources, etc. | Tailors suggestions to your current workflow |
+| **Selected Resource** | Resource type, status, provider, region | Enables "restart this" without asking "which resource?" |
+| **Recent Activity** | Last 5 pages visited | Understands your workflow pattern |
+| **Permissions** | Role-based permission set | Hides unauthorized actions entirely |
+
+**Example:** When viewing a specific EC2 instance, the assistant automatically knows the resource details and offers relevant actions like "Stop this VM", "Check cost", or "Apply a lease" — without asking you to specify which resource.
+
+---
+
+### 28.3 What You Can Ask
 
 The AI Assistant can help with:
 
 | Category | Example Questions |
 |----------|-------------------|
 | **Platform Navigation** | "How do I create a new catalog item?" |
-| **Troubleshooting** | "Why did my execution fail?" |
-| **Configuration Help** | "What cron expression runs every weekday at 9 AM?" |
-| **Best Practices** | "What's the recommended way to set up approval workflows?" |
-| **Cost Questions** | "How do I set up a budget alert?" |
-| **Policy Guidance** | "How do I block large instances in development?" |
-| **General Cloud** | "What's the difference between t3.medium and t3.large?" |
+| **Resource Actions** | "Restart this VM", "Stop this resource", "Show cost" |
+| **Troubleshooting** | "Why did my execution fail?", "Explain this error" |
+| **Analytics** | "Show my budget status", "How many resources are running?" |
+| **Provisioning** | "Provision an AWS EC2 instance", "Open the VM catalog" |
+| **Cost Questions** | "How much does a t3.large cost in us-east-1?" |
+| **Policy Guidance** | "What policies are active?", "Show governance rules" |
+| **API Execution** | "Run GET /api/v1/catalog" (Developer/Admin only) |
+| **General Cloud** | "Compare Azure vs AWS VM pricing" |
 
 ---
 
-### 28.3 Tips for Best Results
+### 28.4 Page-Specific Suggestions
+
+The assistant provides different suggestions based on your current page:
+
+| Page | User Suggestions | Admin Suggestions |
+|------|-----------------|-------------------|
+| **Dashboard** | Resource summary, recent executions | Platform health, budget alerts, pending approvals |
+| **Service Catalog** | Browse catalogs, provision resources | Catalog usage, approval requirements |
+| **Resources** | Show running resources, stop/start | Sync errors, expensive resources |
+| **Executions** | Recent runs, explain failures | Execution summary, failure analytics |
+| **Approvals** | My pending requests | All pending, approve/reject |
+
+---
+
+### 28.5 Resource Context Actions
+
+When viewing a specific resource, the assistant understands:
+- Resource type (EC2, Azure VM, RDS, etc.)
+- Current status (running, stopped, terminated)
+- Cloud provider and region
+- Associated credential and inventory
+
+You can say things like:
+- "Restart this" → Restarts the currently viewed resource
+- "What's the cost?" → Looks up pricing for this instance type
+- "Apply a 30-day lease" → Sets a destroy date on this resource
+- "Show execution history" → Shows provisioning history for this resource
+
+---
+
+### 28.6 Tips for Best Results
 
 - **Be specific** — "How do I add an AWS credential?" works better than "help with credentials"
-- **Provide context** — Mention what you're trying to accomplish
-- **Ask follow-ups** — The assistant remembers the conversation context
-- **Use for guidance** — The assistant explains features and steps but doesn't perform actions for you
-- **Developer Mode** — When Developer Mode is enabled, the assistant provides more technical detail
+- **Use pronouns** — When viewing a resource, "stop this" or "restart it" works naturally
+- **Ask follow-ups** — The assistant remembers conversation context (last 20 messages)
+- **Click suggestions** — Use the clickable suggestion chips for quick follow-ups
+- **Developer Mode** — When enabled, the assistant provides more technical detail
+- **API Execution** — Developers and admins can run any CMP API endpoint through the assistant
 
 ---
 

@@ -114,14 +114,22 @@ Complete organizational isolation for enterprises, MSPs, and SaaS providers.
 - **Independent Configuration** — Each tenant has its own policies, budgets, feature toggles, and approval chains
 - **Scalable Plans** — Configurable user and resource limits per tenant
 
-### 10. AI-Powered Assistant
+### 10. AI-Powered Cloud Copilot
 
-Built-in AI chatbot that helps users navigate the platform and get answers instantly.
+An enterprise-grade AI copilot that understands your entire cloud environment and acts as your intelligent assistant.
 
-- **Contextual Help** — Understands the current page and provides relevant guidance
-- **Natural Language** — Ask questions in plain English about features, workflows, or troubleshooting
-- **Always Available** — Accessible via keyboard shortcut (⌘K) from any page
-- **Cloud Best Practices** — Get recommendations on architecture, sizing, and cost optimization
+- **Context-Aware Intelligence** — Automatically adapts to your current page, selected resource, and role. Say "restart this" while viewing a VM — it knows exactly which one
+- **Natural Language Provisioning** — "Provision a t3.medium EC2 in us-west-2" opens the form pre-filled with your specifications
+- **Proactive Insights** — Dashboard cards showing expiring leases, failed executions, budget alerts, and sync errors before you ask
+- **Catalog Recommendations** — "I need a cheap Linux VM for testing" returns ranked catalog suggestions with cost estimates
+- **Execution Troubleshooting** — "Why did my deployment fail?" analyzes step logs and explains errors in plain language with fix suggestions
+- **Live Cloud Pricing** — Compare instance costs across AWS, Azure, and GCP in real-time
+- **Role-Based Filtering** — Full platform awareness with strict RBAC: users see only their own data, admins see everything
+- **API Execution** — Developers can run any platform API endpoint through natural language
+- **Ownership-Aware Queries** — "Show my resources" automatically filters to your inventory without configuration
+- **Policy Explanation** — Understand why a request was blocked and how to comply
+- **Quota Checking** — Verify resource availability before provisioning to prevent failures
+- **One-Click Actions** — Start, stop, restart, lease, or terminate resources directly from conversation
 
 ### 11. Notifications & Integrations
 

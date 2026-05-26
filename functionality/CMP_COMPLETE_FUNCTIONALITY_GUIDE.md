@@ -1148,22 +1148,45 @@ Configure webhook endpoints that external systems can call to trigger CMP action
 
 ### Overview
 
-The AI Assistant is powered by Google Gemini 2.5 Flash Lite and provides contextual help within the platform.
+The AI Assistant is an **intelligent, context-aware enterprise cloud copilot** powered by Google Gemini 2.5 Flash Lite. It has full awareness of the CMP platform data (inventory, executions, catalogs, audit logs, approvals, budgets) while enforcing strict role-based access control on all responses and actions.
+
+### Intelligence Model
+
+The assistant dynamically adapts based on:
+- **User Role** — Only suggests/executes actions the user is permitted to perform
+- **Current Page** — Tailors suggestions to the user's current workflow context
+- **Selected Resource** — Understands "this", "it" when viewing a specific resource
+- **Ownership Filtering** — Non-admin users only see their own data; admins see platform-wide
+- **Catalog Intelligence** — Recommends catalogs based on intent, role eligibility, and tags
+- **Historical Activity** — Can query user's past executions, audit logs, and provisioning history
 
 ### Capabilities
 
-- Answer questions about CMP features and usage
-- Guide users through provisioning workflows
-- Explain error messages and suggest fixes
-- Help with form filling in the catalog
-- Provide cloud best practices
-- Assist with Terraform template creation
+- **Resource Actions** — Start, stop, restart, terminate resources directly via natural language
+- **Catalog Provisioning** — Open provisioning forms, recommend catalogs based on intent
+- **Troubleshooting** — Analyze failed executions, explain errors, suggest fixes
+- **Analytics** — Platform summaries, budget status, execution metrics, resource counts
+- **API Execution** — Developers/admins can run any CMP API endpoint through the assistant
+- **Cloud Pricing** — Live pricing lookups across AWS, Azure, GCP
+- **Lease Management** — Apply/remove resource leases via conversation
+- **Approval Management** — View, approve, or reject requests (admin)
+- **Navigation** — Guide users to the correct page for any task
+
+### Ownership-Aware Data Access
+
+| User Role | Data Scope |
+|-----------|-----------|
+| USER | Own resources, own executions, own audit logs |
+| DEVELOPER | Own resources + create catalogs/workflows/tasks |
+| ADMIN | Full platform-wide access to all data |
 
 ### UI
 
 - Slide-out panel on the right side of the screen
-- Persistent across page navigation
-- Conversation history within session
+- Dual mode: Command palette (quick actions) + Chat conversation
+- Context pill showing current page, role, and selected resource
+- Clickable suggestion chips for follow-up actions
+- Persistent conversation history per user
 - Toggle via ⌘K shortcut or nav bar button
 
 ---
