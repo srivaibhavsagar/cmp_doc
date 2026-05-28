@@ -294,21 +294,56 @@ const [isAutoSelected, setIsAutoSelected] = useState(false)
 
 ## Template Syntax
 
-Templates use `{{field_name}}` placeholders that reference form field values.
+Templates use `{{placeholder}}` syntax to inject dynamic values. Three sources are available:
 
-| Template | Form Values | Resolved |
-|----------|-------------|----------|
+### Form Field Values
+Reference the user's form input directly by field name.
+
+| Template | Form Values | Resolves to |
+|----------|-------------|-------------|
 | `{{environment}}` | `{"environment": "production"}` | `production` |
 | `{{env}}-account` | `{"env": "prod"}` | `prod-account` |
 | `{{env}}-{{region}}` | `{"env": "prod", "region": "us-east-1"}` | `prod-us-east-1` |
 | `{{missing}}` | `{"env": "prod"}` | `{{missing}}` (unresolved) |
 
+### Shared Variables
+Reference admin-defined shared variables (Infrastructure → Shared Variables) using `vars.` prefix.
+
+| Template | Shared Variable | Resolves to |
+|----------|----------------|-------------|
+| `{{vars.default_env}}` | `default_env = "production"` | `production` |
+| `{{vars.team_prefix}}-aws` | `team_prefix = "platform"` | `platform-aws` |
+| `{{vars.account_id}}` | `account_id = "123456"` | `123456` |
+
+### User Context
+Reference the logged-in user's information using `user.` prefix.
+
+| Template | User Field | Example Value |
+|----------|-----------|---------------|
+| `{{user.username}}` | Login username | `john.doe` |
+| `{{user.email}}` | Email address | `john@company.com` |
+| `{{user.role}}` | Current role | `developer` |
+| `{{user.first_name}}` | First name | `John` |
+| `{{user.last_name}}` | Last name | `Doe` |
+| `{{user.tenant_id}}` | Tenant ID | `default` |
+| `{{user.user_id}}` | User UUID | `550e8400-...` |
+
+### Combining Sources
+
+You can mix all three sources in a single template:
+
+```
+{{vars.team_prefix}}-{{environment}}-{{user.role}}
+→ "platform-production-developer"
+```
+
 **Rules:**
-- Placeholders use double curly braces: `{{field_name}}`
-- Field names must be alphanumeric + underscores (regex: `\w+`)
-- If the referenced field is missing or None, the placeholder remains as-is
+- Placeholders use double curly braces: `{{...}}`
+- Dotted paths support one level: `{{vars.key}}` or `{{user.field}}`
+- If the referenced value is missing or None, the placeholder remains as literal text
 - Multiple placeholders in one template are resolved independently
 - Values are converted to strings via `str(value)`
+- Resolution is case-sensitive for keys
 
 ---
 

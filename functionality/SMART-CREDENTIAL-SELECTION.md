@@ -75,15 +75,17 @@ Tag Value Template: {{environment}}
 ```
 
 **How templates work:**
-- `{{environment}}` is replaced with whatever the user typed/selected in the "environment" form field
+- `{{environment}}` — replaced with the user's form field value
+- `{{vars.key}}` — replaced with a shared variable (Infrastructure → Shared Variables)
+- `{{user.username}}` — replaced with the logged-in user's username (also: `user.email`, `user.role`, `user.first_name`, `user.last_name`, `user.tenant_id`)
 - You can add static text: `env-{{environment}}` resolves to `env-production`
-- Multiple placeholders: `{{env}}-{{region}}` resolves to `prod-us-east-1`
+- Multiple placeholders: `{{vars.team}}-{{environment}}` resolves to `platform-production`
 
 ---
 
 ### 3. Name Pattern Matching
 
-**What it does:** Matches credentials whose name contains a pattern derived from the user's form input (case-insensitive substring match).
+**What it does:** Matches credentials whose name contains a pattern derived from the user's form input, shared variables, or user context (case-insensitive substring match).
 
 **Example scenario:**
 - Credentials are named like `prod-aws-platform`, `staging-aws-platform`, `prod-aws-data`
@@ -98,7 +100,35 @@ Name Pattern Template: {{environment}}
 
 **Advanced patterns:**
 - `{{environment}}-aws` matches credentials containing "prod-aws" in their name
-- `{{team}}-{{environment}}` matches credentials containing "platform-prod"
+- `{{vars.team_prefix}}-{{environment}}` matches credentials containing "platform-prod"
+- `{{user.username}}` matches credentials containing the logged-in user's username
+
+---
+
+### 3b. Using Shared Variables and User Context
+
+Beyond form field values, templates can reference:
+
+**Shared Variables** (set by admins under Infrastructure → Shared Variables):
+```
+Tag Value Template: {{vars.default_environment}}
+Name Pattern Template: {{vars.account_prefix}}-{{environment}}
+```
+
+**User Context** (automatically available for the logged-in user):
+```
+Tag Value Template: {{user.role}}
+Name Pattern Template: {{user.username}}
+Tag Value Template: {{user.tenant_id}}
+```
+
+**Example use cases:**
+| Goal | Template | Resolves to |
+|------|----------|-------------|
+| Match credential by user's team (shared var) | `{{vars.team}}` | `platform` |
+| Match credential by username in name | `{{user.username}}` | `john.doe` |
+| Match credential by role tag | `{{user.role}}` | `developer` |
+| Combine shared var + form field | `{{vars.org}}-{{environment}}` | `acme-production` |
 
 ---
 
