@@ -169,11 +169,92 @@ Every field you add to the form has the following configuration options:
 
 **Conditional Display (depends_on):**
 
-Make a field appear or disappear based on another field's value. Configure:
-- **Field** — Which other field to watch
-- **Value** — What value triggers this field to show
+Make a field appear or disappear based on other fields' values. The `depends_on` field accepts a JSON object with several supported formats:
 
-Example: Show "Subnet ID" field only when "Enable VPC" is checked (true).
+**Single Condition:**
+
+```json
+{"field": "environment", "operator": "equals", "value": "prod"}
+```
+
+This shows the field only when the "environment" field equals "prod".
+
+**Multiple Conditions — ALL (AND logic):**
+
+Use the `all` wrapper when every condition must be true:
+
+```json
+{
+  "all": [
+    {"field": "environment", "operator": "equals", "value": "prod"},
+    {"field": "region", "operator": "equals", "value": "us-east-1"}
+  ]
+}
+```
+
+The field is shown only when environment is "prod" AND region is "us-east-1".
+
+**Multiple Conditions — ANY (OR logic):**
+
+Use the `any` wrapper when at least one condition must be true:
+
+```json
+{
+  "any": [
+    {"field": "environment", "operator": "equals", "value": "prod"},
+    {"field": "environment", "operator": "equals", "value": "staging"}
+  ]
+}
+```
+
+The field is shown when environment is either "prod" OR "staging".
+
+**Shorthand Object Syntax (implicit AND with equals):**
+
+```json
+{"environment": "prod", "region": "us-east-1"}
+```
+
+This is a shorthand equivalent to "all equals" — the field is shown only when environment is "prod" AND region is "us-east-1".
+
+**Supported Operators:**
+
+| Operator | Description | Example Value |
+|----------|-------------|---------------|
+| `equals` | Exact match (default if operator is omitted) | `"prod"` |
+| `not_equals` | Value does not match | `"dev"` |
+| `in` | Value is in an array | `["prod", "staging"]` |
+| `not_in` | Value is not in an array | `["test", "sandbox"]` |
+| `contains` | String/array contains the value | `"prod"` |
+| `exists` | Field has any non-null value | (no value needed) |
+| `not_empty` | Field is not empty or blank | (no value needed) |
+
+**Examples:**
+
+- Show "Subnet ID" only when "Enable VPC" is checked:
+  ```json
+  {"field": "enable_vpc", "operator": "equals", "value": true}
+  ```
+
+- Show "Production Approval Ticket" only when environment is "prod" AND region is a US region:
+  ```json
+  {
+    "all": [
+      {"field": "environment", "operator": "equals", "value": "prod"},
+      {"field": "region", "operator": "in", "value": ["us-east-1", "us-east-2", "us-west-1", "us-west-2"]}
+    ]
+  }
+  ```
+
+- Show "Backup Schedule" when environment is either "prod" or "staging":
+  ```json
+  {
+    "any": [
+      {"field": "environment", "operator": "equals", "value": "prod"},
+      {"field": "environment", "operator": "equals", "value": "staging"}
+    ]
+  }
+  ```
 
 ---
 
