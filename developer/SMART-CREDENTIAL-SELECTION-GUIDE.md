@@ -124,7 +124,15 @@ class SelectionRule(BaseModel):
 ```python
 class CredentialSelectionConfig(BaseModel):
     rules: List[SelectionRule] = []
+    show_credential_dropdown: bool = True   # Show dropdown to users (False = silent resolution)
+    allow_override: bool = True             # Show "Change" button when auto-resolved
 ```
+
+**Admin options:**
+| Field | Default | Effect |
+|-------|---------|--------|
+| `show_credential_dropdown` | `true` | When `false`, the credential dropdown is completely hidden from users. Credential is resolved silently based on rules. |
+| `allow_override` | `true` | When `false`, the "Change" button is hidden after auto-resolution. Users cannot override the selected credential. |
 
 ### Request/Response Models
 

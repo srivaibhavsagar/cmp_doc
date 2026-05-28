@@ -170,10 +170,23 @@ This means suggestions improve progressively as the user fills the form.
 - No credentials match all rules
 - The catalog has no selection rules configured
 
-**User override:**
-- Users can always change the auto-selected credential
-- Once overridden, the indicator disappears
-- Changing form fields re-triggers evaluation (may auto-select again)
+**Admin controls:**
+
+| Setting | Effect |
+|---------|--------|
+| Show credential dropdown (checked) | Users see the full credential dropdown and can select manually |
+| Show credential dropdown (unchecked) | Credential is resolved silently — users don't see any credential UI |
+| Allow override (checked) | A "Change" button appears after auto-resolution, letting users pick a different credential |
+| Allow override (unchecked) | No "Change" button — the auto-resolved credential is final |
+
+**Behavior matrix:**
+
+| Show Dropdown | Allow Override | User Experience |
+|:---:|:---:|---|
+| ✓ | ✓ | Full dropdown shown; auto-selects when match found; user can change anytime |
+| ✓ | ✗ | Full dropdown shown initially; after auto-resolve, locked to resolved credential |
+| ✗ | ✓ | No dropdown; shows resolved credential with "Change" button |
+| ✗ | ✗ | Completely hidden; credential resolved silently in background |
 
 ---
 
