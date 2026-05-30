@@ -130,6 +130,9 @@ An enterprise-grade AI copilot that understands your entire cloud environment an
 - **Policy Explanation** — Understand why a request was blocked and how to comply
 - **Quota Checking** — Verify resource availability before provisioning to prevent failures
 - **One-Click Actions** — Start, stop, restart, lease, or terminate resources directly from conversation
+- **Contextual Inline AI Suggestions** — AI action buttons appear directly in the UI where issues occur (e.g., "Ask AI to explain this error" on failed executions, "Suggest optimizations" on resource pages, "Generate Terraform" on resource details). No need to open the AI panel or context-switch
+- **AI-Powered Catalog Recommendations** — The catalog page proactively suggests relevant items based on your usage patterns, role, and stated intent. Includes "users like you also provisioned" recommendations and intent-matched search results
+- **Persistent Conversation History** — Every AI conversation is automatically saved per user in DynamoDB. Resume past conversations, reference previous answers, and build on prior context across sessions without starting over
 
 ### 11. Notifications & Integrations
 

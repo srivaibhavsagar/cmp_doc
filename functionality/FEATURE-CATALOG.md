@@ -155,16 +155,25 @@ CMP uses feature keys in the license to control what capabilities are available.
 
 ### 5. `ai_assistant` — AI Assistant
 
-**What it is:** AI-powered copilot that helps with cloud operations using natural language.
+**What it is:** AI-powered copilot that helps with cloud operations using natural language, with contextual inline suggestions, smart catalog recommendations, and persistent conversation history.
 
 **UI Components:**
 - AI chat panel (⌘K shortcut)
-- Inline AI suggestions in forms
+- Inline AI suggestion buttons on execution, resource, catalog, policy, and budget pages
+- AI-powered catalog recommendations on the catalog page
+- Conversation history panel with resumable sessions
 
 **API Endpoints:**
 - `POST /api/v1/chat` — Send message to AI assistant
-- `POST /api/v1/chat/generate-terraform` — Generate Terraform from description
-- `POST /api/v1/chat/explain` — Explain a resource or error
+- `POST /api/v1/ai/inline-suggestions` — Get contextual AI action buttons for current UI state
+- `POST /api/v1/ai/catalog-recommendations` — Get personalized catalog suggestions based on usage patterns
+- `GET /api/v1/ai/conversations` — List user's saved conversations
+- `POST /api/v1/ai/conversations` — Create a new conversation
+- `GET /api/v1/ai/conversations/:id` — Get conversation with full message history
+- `POST /api/v1/ai/conversations/:id/messages` — Append messages to a conversation
+- `PATCH /api/v1/ai/conversations/:id` — Rename a conversation
+- `DELETE /api/v1/ai/conversations/:id` — Delete a conversation
+- `DELETE /api/v1/ai/conversations` — Clear all conversations
 
 **What users can do:**
 - Ask questions in natural language ("How much did we spend on EC2 last month?")
@@ -172,8 +181,12 @@ CMP uses feature keys in the license to control what capabilities are available.
 - Get explanations of errors and resources
 - Get optimization recommendations
 - Troubleshoot issues with AI guidance
+- Click inline AI buttons on failed executions ("Explain this error", "Suggest a fix")
+- See personalized catalog recommendations based on their usage history and intent
+- Resume past AI conversations from any previous session
+- Reference previous AI answers without re-asking questions
 
-**Powered by:** Google Gemini 2.5 Flash Lite (configurable via `GEMINI_API_KEY`)
+**Powered by:** Google Gemini 2.5 Flash Lite (configurable via admin UI or `GEMINI_API_KEY`)
 
 ---
 
