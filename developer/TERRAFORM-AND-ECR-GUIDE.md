@@ -522,6 +522,170 @@ Or via GitHub UI: Repository → Settings → Secrets and variables → Actions 
 
 ---
 
+## Automated Customer Deployment (deploy-customer.yml)
+
+After `release.yml` publishes images to ECR and `terraform/customer` provisions the EC2 instance, use the **deploy-customer.yml** workflow to remotely deploy or upgrade the application — no SSH required.
+
+### What It Does
+
+- Pulls **compiled binary images only** from ECR to the customer's EC2 (no source code ever touches the customer environment)
+- Uses a vendor-provided ECR login token (customer never gets vendor AWS credentials)
+- Verifies license is in place (license placement remains a **manual** step by the customer)
+- Deploys via AWS SSM RunCommand (no SSH keys or open ports required)
+- Records version history and supports rollback
+
+### Prerequisites
+
+1. **Customer instance provisioned** via `terraform/customer` (creates EC2 with IAM role granting SSM + S3 access)
+2. **License placed manually** — customer places `license.json` at `/opt/cmp/config/license.json`
+3. **`.env.production` configured** — customer creates `/opt/cmp/.env.production` with `SECRET_KEY`, `ENCRYPTION_KEY`, `DYNAMODB_ENDPOINT`, `REDIS_URL`, etc.
+4. **Images published** — `release.yml` must have completed for the target version
+5. **ECR login token refreshed** — vendor generates a token and stores it as `ECR_LOGIN_TOKEN` GitHub secret (expires every 12 hours)
+6. **GitHub Secrets configured** (see below)
+
+### How to Use
+
+```bash
+# Via GitHub CLI — first deploy
+gh workflow run deploy-customer.yml \
+  -f customer_name="acme-corp" \
+  -f instance_id="i-0abc123def456789a" \
+  -f version="1.0.0" \
+  -f aws_region="us-east-1" \
+  -f deployment_model="on-premises" \
+  -f action="deploy"
+
+# Upgrade to new version
+gh workflow run deploy-customer.yml \
+  -f customer_name="acme-corp" \
+  -f instance_id="i-0abc123def456789a" \
+  -f version="1.1.0" \
+  -f aws_region="us-east-1" \
+  -f deployment_model="on-premises" \
+  -f action="upgrade"
+
+# Rollback
+gh workflow run deploy-customer.yml \
+  -f customer_name="acme-corp" \
+  -f instance_id="i-0abc123def456789a" \
+  -f version="1.1.0" \
+  -f aws_region="us-east-1" \
+  -f deployment_model="on-premises" \
+  -f action="rollback" \
+  -f rollback_version="1.0.0"
+
+# Check status (no changes)
+gh workflow run deploy-customer.yml \
+  -f customer_name="acme-corp" \
+  -f instance_id="i-0abc123def456789a" \
+  -f version="1.0.0" \
+  -f aws_region="us-east-1" \
+  -f deployment_model="on-premises" \
+  -f action="status"
+```
+
+Or via GitHub UI: Actions → "CMP Customer — Deploy / Upgrade" → Run workflow
+
+### Supported Actions
+
+| Action | Description |
+|--------|-------------|
+| `deploy` | First-time deployment — pulls images, starts the full stack |
+| `upgrade` | Upgrade to a new version — pulls new images, restarts containers |
+| `rollback` | Revert to a previous version (specify `rollback_version`) |
+| `status` | Check current deployment status (read-only, no changes) |
+
+### Pipeline Flow
+
+```
+Manual Trigger (customer_name, instance_id, version, action)
+    │
+    ▼
+┌──────────────────────────────────────────────────────────┐
+│ VALIDATE                                                  │
+│ • Verify instance ID format + version format             │
+│ • Verify instance is SSM-managed and online              │
+└──────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌──────────────────────────────────────────────────────────┐
+│ DEPLOY (via SSM RunCommand on customer EC2)               │
+│ • Transfer docker-compose.production.yml via S3          │
+│ • Verify license.json present (FAIL if missing)          │
+│ • Verify .env.production present (FAIL if missing)       │
+│ • Authenticate to vendor ECR using provided token        │
+│ • Pull binary images (no source code in containers)      │
+│ • Stop existing stack gracefully                         │
+│ • Start new stack with --profile local                   │
+│ • Wait for health checks (backend + frontend)            │
+│ • Record version in /opt/cmp/.cmp-version                │
+│ • Append to /opt/cmp/.deploy-history                     │
+└──────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌──────────────────────────────────────────────────────────┐
+│ VERIFY                                                    │
+│ • Confirm deployed version matches target                │
+│ • Show container status                                  │
+│ • Verify backend health response                         │
+└──────────────────────────────────────────────────────────┘
+```
+
+### Security Guarantees
+
+| Guarantee | Mechanism |
+|-----------|-----------|
+| No source code on customer infra | Images contain Nuitka-compiled binaries + nginx-served obfuscated JS |
+| No source code transfer | Only `docker-compose.production.yml` (config) is transferred via S3 |
+| License stays manual | Workflow FAILS if license not pre-placed by customer |
+| Secrets stay with customer | `.env.production` is customer-managed, never uploaded or transmitted |
+| ECR access is token-based | Vendor provides a short-lived ECR token — customer never gets AWS credentials |
+| Audit trail | Every deploy logged to `/opt/cmp/.deploy-history` with timestamp |
+| Rollback supported | Previous version stored in `.cmp-version.previous` |
+
+### GitHub Secrets Required (for deploy-customer.yml)
+
+| Secret | Purpose |
+|--------|---------|
+| `AWS_ACCOUNT_ID` | Vendor account ID (for constructing ECR registry URL) |
+| `AWS_REGION` | Vendor ECR region |
+| `ECR_LOGIN_TOKEN` | Vendor-generated ECR auth token for image pulls (12h expiry) |
+| `CUSTOMER_DEPLOY_ACCESS_KEY_ID` | Customer account — SSM + S3 access |
+| `CUSTOMER_DEPLOY_SECRET_ACCESS_KEY` | Customer account — corresponding secret |
+
+### Refreshing the ECR Login Token
+
+ECR tokens expire after 12 hours. Before deploying, refresh the token:
+
+```bash
+# Generate token from vendor AWS account
+TOKEN=$(aws ecr get-login-password --region us-east-1)
+
+# Store in GitHub Secrets
+gh secret set ECR_LOGIN_TOKEN --body "${TOKEN}"
+```
+
+> **Tip:** Automate this with a scheduled GitHub Action or cron job that refreshes `ECR_LOGIN_TOKEN` every 10 hours.
+
+> **Multi-customer note:** For deploying to multiple customers' AWS accounts, create separate IAM users per customer or use cross-account roles. The `CUSTOMER_DEPLOY_*` secrets need access to the specific customer's account where the EC2 instance lives.
+
+### Customer Terraform Usage
+
+```bash
+cat > customer.tfvars << 'EOF'
+customer_name    = "acme-corp"
+aws_region       = "us-east-1"
+deployment_mode  = "single"
+deployment_model = "on-premises"
+instance_type    = "t3.xlarge"
+key_pair_name    = "acme-key"
+EOF
+
+terraform apply -var-file=customer.tfvars
+```
+
+---
+
 ## Quick Reference
 
 | Task | Command |
@@ -532,6 +696,9 @@ Or via GitHub UI: Repository → Settings → Secrets and variables → Actions 
 | Push image to ECR | `docker push <registry>/autonimbus/cmp/cmp-backend:1.0.0` |
 | Trigger release | `git tag -a v1.0.0 -m "Release" && git push origin v1.0.0` |
 | Manual release | GitHub Actions → Run workflow → enter version |
+| Deploy to customer | `gh workflow run deploy-customer.yml -f customer_name=X -f instance_id=i-xxx -f version=1.0.0 -f action=deploy` |
+| Upgrade customer | `gh workflow run deploy-customer.yml -f customer_name=X -f instance_id=i-xxx -f version=1.1.0 -f action=upgrade` |
+| Check customer status | `gh workflow run deploy-customer.yml -f customer_name=X -f instance_id=i-xxx -f version=1.0.0 -f action=status` |
 | List ECR images | `aws ecr list-images --repository-name autonimbus/cmp/cmp-backend` |
 | Destroy vendor infra | `cd terraform/vendor && terraform destroy` |
 | Destroy customer infra | `cd terraform/customer && terraform destroy -var-file=customer.tfvars` |
