@@ -39,9 +39,16 @@ Complete all items before starting an upgrade:
 
 ## Online Upgrade Procedure
 
-Use this method when your environment has internet access to `registry.autonimbus.com`.
+Use this method when your environment has internet access to AWS ECR.
 
-### Step 1: Run Pre-Upgrade Checks
+### Step 1: Re-authenticate with ECR
+
+```bash
+# ECR tokens expire every 12 hours — re-authenticate before upgrading
+aws ecr get-login-password --region <region> \
+  | docker login --username AWS --password-stdin \
+    <account_id>.dkr.ecr.<region>.amazonaws.com
+```
 
 ```bash
 cd /opt/cmp
@@ -472,8 +479,8 @@ Common causes:
 **Cause:** Cannot download new container images.
 
 **Solution:**
-- Verify registry credentials: `docker login registry.autonimbus.com`
-- Check network connectivity to `registry.autonimbus.com`
+- Re-authenticate with ECR: `aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account_id>.dkr.ecr.<region>.amazonaws.com`
+- Check network connectivity to `<account_id>.dkr.ecr.<region>.amazonaws.com`
 - Verify your license permits the target version
 - For air-gapped: ensure images were loaded with `install.sh`
 

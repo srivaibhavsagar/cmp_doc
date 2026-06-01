@@ -31,7 +31,7 @@
 ### Decision: AWS ECR
 
 ```
-registry.autonimbus.com → CNAME → <your-account>.dkr.ecr.<region>.amazonaws.com
+<account_id>.dkr.ecr.<region>.amazonaws.com → CNAME → <your-account>.dkr.ecr.<region>.amazonaws.com
 ```
 
 **Why ECR works for Autonimbus:**
@@ -43,7 +43,7 @@ registry.autonimbus.com → CNAME → <your-account>.dkr.ecr.<region>.amazonaws.
 - Integrates natively with GitHub Actions pipeline
 - Cost: ~$0.10/GB/month storage + $0.09/GB data transfer
 
-**Custom domain:** Put CloudFront in front of ECR to serve from `registry.autonimbus.com`.
+**Custom domain:** Put CloudFront in front of ECR to serve from `<account_id>.dkr.ecr.<region>.amazonaws.com`.
 
 ### Is Self-Hosted Docker Registry Good?
 
@@ -73,8 +73,8 @@ ECR gives you all of this managed for ~$5-20/month. Self-hosted would cost $50-1
 | **S3 Bucket** | Store release packages, air-gapped archives, license backups | ~$5/month |
 | **KMS Key** | Encrypt the RSA private key (license signing) | $1/month + $0.03/10k requests |
 | **Secrets Manager** | Store registry credentials, signing keys | $0.40/secret/month |
-| **CloudFront** (optional) | Custom domain for registry (`registry.autonimbus.com`) | ~$10/month |
-| **Route 53** | DNS for `autonimbus.com`, `registry.autonimbus.com` | $0.50/zone/month |
+| **CloudFront** (optional) | Custom domain for registry (`<account_id>.dkr.ecr.<region>.amazonaws.com`) | ~$10/month |
+| **Route 53** | DNS for `autonimbus.com`, `<account_id>.dkr.ecr.<region>.amazonaws.com` | $0.50/zone/month |
 | **GitHub Actions** | Build pipeline (free tier or paid) | Free for public, $0.008/min for private |
 
 **Total vendor cost: ~$25-50/month** (scales with number of customers and image versions)
@@ -90,7 +90,7 @@ GitHub Actions (release.yml)
     ├── Scan with Trivy
     │
     ▼
-AWS ECR (registry.autonimbus.com)
+AWS ECR (<account_id>.dkr.ecr.<region>.amazonaws.com)
     ├── autonimbus/cmp-backend:v1.0.0-a1b2c3d4
     ├── autonimbus/cmp-frontend:v1.0.0-a1b2c3d4
     ├── autonimbus/cmp-worker:v1.0.0-a1b2c3d4
@@ -338,7 +338,7 @@ IAM Role: cmp-ec2-role
 │                        └──────────────────────────────┘  │
 │                                                          │
 │  Outbound (online only):                                 │
-│  → registry.autonimbus.com:443 (image pull)              │
+│  → <account_id>.dkr.ecr.<region>.amazonaws.com:443 (image pull)              │
 │  → license.autonimbus.com:443 (verification, hybrid/saas)│
 └─────────────────────────────────────────────────────────┘
 ```

@@ -122,7 +122,7 @@ After receiving responses, validate:
 | Docker version | >= 24.0 | Advise upgrade before proceeding |
 | Available RAM | >= 8 GB | Recommend resource increase |
 | Disk space | >= 50 GB free | Recommend expansion |
-| Outbound access (online) | Can reach registry.autonimbus.com:443 | Switch to air-gapped or configure proxy |
+| Outbound access (online) | Can reach <account_id>.dkr.ecr.<region>.amazonaws.com:443 | Switch to air-gapped or configure proxy |
 | x86_64 architecture | `uname -m` returns `x86_64` | Not supported on ARM — escalate |
 
 ---
@@ -293,7 +293,7 @@ Output:
 Registry credentials generated:
   Username: cust_acme_789
   Password: <generated-token>
-  Registry: registry.autonimbus.com
+  Registry: <account_id>.dkr.ecr.<region>.amazonaws.com
   Scope: autonimbus/cmp/*:8.*, autonimbus/cmp/*:9.*
   Expires: 2026-01-15
 ```
@@ -301,28 +301,34 @@ Registry credentials generated:
 #### Step 2: Verify Access
 
 ```bash
-# Test the credentials work
-docker login registry.autonimbus.com \
-  -u cust_acme_789 \
-  -p <generated-token>
+# Authenticate with ECR using AWS CLI
+aws ecr get-login-password --region <region> \
+  | docker login --username AWS --password-stdin \
+    <account_id>.dkr.ecr.<region>.amazonaws.com
 
 # Verify pull access
-docker pull registry.autonimbus.com/autonimbus/cmp/cmp-backend:8.10.0-a1b2c3d4
+docker pull <account_id>.dkr.ecr.<region>.amazonaws.com/autonimbus/cmp/cmp-backend:8.10.0-a1b2c3d4
 ```
 
 #### Step 3: Deliver Credentials
 
 Deliver via secure channel (separate from the license file):
-- Encrypted email with password in separate message
+- Encrypted email with IAM credentials in separate message
 - Secure portal with time-limited download link
 - Direct secure messaging (Signal, encrypted Slack)
 
 Include instructions:
 ```bash
-# Customer configures in their .env file:
-REGISTRY_URL=registry.autonimbus.com
-REGISTRY_USERNAME=cust_acme_789
-REGISTRY_PASSWORD=<provided-token>
+# Customer configures in their .env.production:
+ECR_REGISTRY=<account_id>.dkr.ecr.<region>.amazonaws.com/autonimbus/cmp
+AWS_ACCESS_KEY_ID=<provided-access-key>
+AWS_SECRET_ACCESS_KEY=<provided-secret-key>
+AWS_REGION=<region>
+
+# Authenticate before pulling:
+aws ecr get-login-password --region <region> \
+  | docker login --username AWS --password-stdin \
+    <account_id>.dkr.ecr.<region>.amazonaws.com
 ```
 
 ### For Air-Gapped Deployments

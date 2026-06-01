@@ -113,7 +113,7 @@
 
 1. Ask customer to test credentials:
    ```bash
-   docker login registry.autonimbus.com -u <username> -p <password>
+   aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account_id>.dkr.ecr.<region>.amazonaws.com
    ```
 
 2. Check error message:
@@ -407,7 +407,7 @@ The audit log shows each step's outcome:
 **Cause**: Registry authentication, network, or image not found.
 
 **Resolution**:
-- Verify registry credentials: `docker login registry.autonimbus.com`
+- Re-authenticate with ECR: `aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account_id>.dkr.ecr.<region>.amazonaws.com`
 - Check network connectivity to registry
 - Verify the target version exists in the registry
 - For air-gapped: Verify image tar files are present and not corrupted
@@ -655,10 +655,10 @@ Both old and new credentials are valid for 24 hours:
 
 ```bash
 # Verify old credentials still work
-docker login registry.autonimbus.com -u cust_acme_789 -p <old-token>
+aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account_id>.dkr.ecr.<region>.amazonaws.com  # verify old credentials
 
 # Verify new credentials work
-docker login registry.autonimbus.com -u cust_acme_789 -p <new-token>
+aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account_id>.dkr.ecr.<region>.amazonaws.com  # verify new credentials
 ```
 
 #### 3. Deliver New Credentials
@@ -683,7 +683,7 @@ Please update your configuration within this window:
    REGISTRY_PASSWORD=<new-token>
 
 2. Verify access:
-   docker login registry.autonimbus.com -u cust_acme_789 -p <new-token>
+   aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account_id>.dkr.ecr.<region>.amazonaws.com  # verify new credentials
 
 3. No restart required — credentials are used only during image pulls.
 ```

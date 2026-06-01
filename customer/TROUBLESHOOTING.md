@@ -544,13 +544,13 @@ sudo firewall-cmd --list-all
 
 ```bash
 # Test registry access
-curl -s https://registry.autonimbus.com/v2/ -o /dev/null -w "%{http_code}"
+curl -s https://<account_id>.dkr.ecr.<region>.amazonaws.com/v2/ -o /dev/null -w "%{http_code}"
 
 # Test DNS resolution
-nslookup registry.autonimbus.com
+nslookup <account_id>.dkr.ecr.<region>.amazonaws.com
 
 # Test with proxy (if applicable)
-curl -x http://proxy:8080 https://registry.autonimbus.com/v2/
+curl -x http://proxy:8080 https://<account_id>.dkr.ecr.<region>.amazonaws.com/v2/
 ```
 
 ---

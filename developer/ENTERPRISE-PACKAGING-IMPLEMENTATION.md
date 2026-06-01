@@ -600,7 +600,7 @@ python3 -c "
 content = open('docker-compose.yml').read()
 assert 'nuitka' not in content.lower(), 'Dev compose references Nuitka!'
 assert 'Dockerfile.production' not in content, 'Dev compose references production Dockerfile!'
-assert 'registry.autonimbus.com' not in content, 'Dev compose references private registry!'
+assert '<account_id>.dkr.ecr.<region>.amazonaws.com' not in content, 'Dev compose references private registry!'
 print('✓ Development workflow is isolated from production')
 "
 

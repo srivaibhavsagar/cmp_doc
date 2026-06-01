@@ -115,7 +115,7 @@ The pipeline executes the following stages in order:
                    └──────────────────┘
                             │
                    ┌──────────────────┐
-                   │ Publish Images   │ (push to registry.autonimbus.com)
+                   │ Publish Images   │ (push to <account_id>.dkr.ecr.<region>.amazonaws.com)
                    └──────────────────┘
                             │
                    ┌──────────────────┐
@@ -133,7 +133,7 @@ The pipeline executes the following stages in order:
 | **Build Frontend** | Vite production build with obfuscation, no source maps | Reports failing file/module, exits non-zero |
 | **Build Images** | Multi-stage Docker builds for all 4 services | Reports image name and error |
 | **Scan Images** | Trivy scan for critical/high CVEs | Reports affected image, CVE IDs, affected packages |
-| **Publish Images** | Push to `registry.autonimbus.com` | Reports push failure |
+| **Publish Images** | Push to `<account_id>.dkr.ecr.<region>.amazonaws.com` | Reports push failure |
 | **Assemble Package** | Generate manifest, sign, create release archive | Reports missing artifacts or signing failure |
 
 ### Pipeline Secrets Required
@@ -481,7 +481,7 @@ The customer runs:
 - [ ] Push tag: `git push origin v<version>`
 - [ ] Monitor pipeline execution in GitHub Actions
 - [ ] Verify all pipeline stages pass (compile, build, scan, publish, assemble)
-- [ ] Verify images are available in `registry.autonimbus.com`
+- [ ] Verify images are available in `<account_id>.dkr.ecr.<region>.amazonaws.com`
 - [ ] Download and inspect the release package artifact
 
 ### Post-Release

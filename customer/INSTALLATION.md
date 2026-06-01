@@ -48,7 +48,7 @@ This guide walks you through installing the Cloud Management Platform (CMP) in y
 | 6379 | Redis | Internal | Cache and message broker |
 | 8000 | DynamoDB | Internal | Database (or AWS endpoint) |
 
-> **Note:** For online installations, outbound HTTPS (port 443) access to `registry.autonimbus.com` is required during image pull.
+> **Note:** For online installations, outbound HTTPS (port 443) access to `<account_id>.dkr.ecr.<region>.amazonaws.com` is required during image pull.
 
 ---
 
@@ -72,16 +72,18 @@ Before starting installation, verify the following:
 
 ## Online Installation (Registry Pull)
 
-Use this method when your environment has outbound internet access to `registry.autonimbus.com`.
+Use this method when your environment has outbound internet access to AWS ECR.
 
 ### Step 1: Authenticate with the Container Registry
 
 ```bash
-# Log in using credentials provided by Autonimbus
-docker login registry.autonimbus.com \
-  --username <your-customer-id> \
-  --password <your-registry-token>
+# Authenticate Docker to your AWS ECR registry using the AWS CLI
+aws ecr get-login-password --region <region> \
+  | docker login --username AWS --password-stdin \
+    <account_id>.dkr.ecr.<region>.amazonaws.com
 ```
+
+> Your `<account_id>`, `<region>`, and the AWS credentials (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`) are provided by Autonimbus in your onboarding package.
 
 ### Step 2: Create the Installation Directory
 

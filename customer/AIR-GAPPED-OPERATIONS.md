@@ -28,7 +28,7 @@ When CMP is deployed in air-gapped mode (`DEPLOYMENT_MODEL=air-gapped`), the fol
 | License verification | No outbound calls to vendor server |
 | Update checks | No automatic update notifications |
 | Telemetry | No usage data sent anywhere |
-| Registry pulls | Cannot pull images from registry.autonimbus.com |
+| Registry pulls | Cannot pull images from <account_id>.dkr.ecr.<region>.amazonaws.com |
 | External webhooks | Slack, Teams, PagerDuty notifications disabled unless on internal network |
 | AI service (cloud) | Disabled unless using on-premises AI model |
 

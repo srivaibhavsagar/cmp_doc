@@ -234,7 +234,7 @@ In your `docker-compose.yml`, reference secrets:
 ```yaml
 services:
   cmp-backend:
-    image: registry.autonimbus.com/cmp-backend:8.10.0
+    image: <account_id>.dkr.ecr.<region>.amazonaws.com/cmp-backend:8.10.0
     secrets:
       - cmp_secret_key
       - cmp_encryption_key

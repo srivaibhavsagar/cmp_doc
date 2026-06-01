@@ -106,7 +106,7 @@ rm = RegistryManager()
 cred = rm.generate_credential('cust_customer_001', ['1.0.0', 'latest'])
 print(f'Username: {cred.username}')
 print(f'Password: {cred.password_plain}')
-print(f'Registry: registry.autonimbus.com')
+print(f'Registry: <account_id>.dkr.ecr.<region>.amazonaws.com')
 "
 ```
 
@@ -126,7 +126,7 @@ mkdir -p /opt/cmp/{license,config,logs,backups}
 cd /opt/cmp
 
 # 2. Login to private registry
-docker login registry.autonimbus.com \
+docker login <account_id>.dkr.ecr.<region>.amazonaws.com \
   --username <provided-username> \
   --password <provided-password>
 
@@ -708,7 +708,7 @@ Go to GitHub Actions → "CMP Release — Enterprise Package Build" and watch:
 4. ✓ Build frontend (Vite → obfuscated bundle)
 5. ✓ Build images (multi-stage Docker)
 6. ✓ Scan images (Trivy — no critical/high CVEs)
-7. ✓ Publish images (push to registry.autonimbus.com)
+7. ✓ Publish images (push to <account_id>.dkr.ecr.<region>.amazonaws.com)
 8. ✓ Assemble package (signed release archive)
 
 ### Step 4: Deliver to Customers
