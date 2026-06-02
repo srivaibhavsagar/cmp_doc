@@ -1227,6 +1227,67 @@ Notifications are sent via:
 - Lease expiry warnings (to resource owner)
 - Drift detection alerts (to workspace owner)
 
+### 16.4 Mail Body Templates
+
+**API:** `/api/v1/settings/mail-templates`  
+**Access:** Admin
+
+Admins can customize the email subject and body for each notification event type. Templates support `{placeholder}` variables that are automatically replaced with event-specific metadata at send time.
+
+#### Configurable Events
+
+| Event Key | When It Fires | Available Placeholders |
+|-----------|---------------|----------------------|
+| `approval.pending` | New approval request submitted | `catalog_name`, `requested_by`, `approval_id`, `justification` |
+| `approval.approved` | Request approved | `catalog_name`, `actioned_by`, `comment` |
+| `approval.rejected` | Request rejected | `catalog_name`, `actioned_by`, `comment` |
+| `resource.provision.completed` | Resource provisioned successfully | `resource_name`, `resource_type`, `execution_id`, `duration_ms` |
+| `resource.provision.failed` | Resource provisioning failed | `resource_name`, `resource_type`, `execution_id`, `duration_ms` |
+| `cost.threshold.exceeded` | Budget threshold crossed | `budget_name`, `threshold_pct`, `current_spend`, `budget_amount`, `current_pct`, `resource_name` |
+| `catalog.requested` | Catalog item requested | `catalog_name`, `requested_by`, `catalog_type`, `status` |
+| `catalog.completion.success` | Catalog execution succeeded | `catalog_name`, `execution_id`, `duration_ms`, `step_count`, `total_steps` |
+| `catalog.completion.failure` | Catalog execution failed | `catalog_name`, `execution_id`, `failed_step`, `error` |
+
+#### Per-Event Enable/Disable
+
+Each mail template has an **enabled** toggle (default: `true`). When set to `false`, no email or notification is sent for that event — the template is effectively silenced without deleting it. This allows admins to selectively mute specific notification types (e.g., disable provisioning success emails while keeping failure alerts active).
+
+To disable a notification, update the template via the API or Administration → Settings page and set `enabled` to `false`.
+
+#### How It Works
+
+1. Each event type has a **default template** with a pre-written subject and body.
+2. Admins can override any template via the Administration → Settings page.
+3. Placeholders are written as `{placeholder_name}` in both subject and body fields.
+4. Only placeholders listed for that event type are substituted — unknown placeholders are left as-is.
+5. If an admin hasn't customized a template, the system default is used.
+6. If a template's `enabled` flag is `false`, the notification is skipped entirely — no email is sent for that event.
+
+#### Example Template
+
+**Event:** `approval.pending`
+
+```
+Subject: [CMP] Approval Required: {catalog_name}
+
+Body:
+A new approval request has been submitted.
+
+Catalog: {catalog_name}
+Requested by: {requested_by}
+Approval ID: {approval_id}
+Justification: {justification}
+
+Please log in to the Cloud Management Platform to review.
+```
+
+#### API Operations
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/settings/mail-templates` | Retrieve all mail templates (defaults + overrides) |
+| PUT | `/api/v1/settings/mail-templates` | Update one or more mail templates |
+
 ---
 
 ## 17. Feature Toggle System
@@ -1456,6 +1517,7 @@ All authenticated routes include the tenant slug:
 | GET/PUT | `/settings/feature-toggles` | Feature toggle management |
 | GET | `/settings/feature-toggles/me` | Current user's enabled features |
 | CRUD | `/settings/notification-channels` | Notification channel config |
+| GET/PUT | `/settings/mail-templates` | Mail body template customization |
 | GET/PUT | `/branding` | Branding configuration |
 | CRUD | `/groups` | Group management |
 | CRUD | `/webhooks` | Webhook management |
@@ -1492,6 +1554,7 @@ All authenticated routes include the tenant slug:
 4. **Platform Configuration**
    - Enable/disable features via toggles
    - Configure notification channels (Slack, Teams, email)
+   - Customize mail body templates for each event type
    - Set up event automation rules
    - Manage tenant settings and branding
    - Configure Terraform state backends
