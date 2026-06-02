@@ -418,9 +418,14 @@ Tasks are the atomic units of execution — individual code scripts or API calls
 **How Tasks Work:**
 1. Developer writes code (inline or links to GitHub)
 2. Defines input parameters the task expects
-3. Task is referenced in Workflows as a step
-4. At execution time, the Task Runner executes the code with injected parameters
-5. Output is captured and available to subsequent steps
+3. Optionally specifies package dependencies (e.g., `boto3>=1.28.0` for Python)
+4. Task is referenced in Workflows as a step
+5. At execution time, the Task Runner executes the code with injected parameters
+6. Output is captured and available to subsequent steps
+
+**Execution Modes:**
+- **Docker (primary):** Each task runs in an ephemeral container matching its language. Dependencies are installed inside the container before execution. The container is destroyed after returning results.
+- **Local fallback:** When Docker is unavailable, tasks run as local subprocesses. For Python tasks with dependencies, a temporary virtual environment is created, packages are installed via pip, and the task runs within that venv. The venv is cleaned up after execution.
 
 ### 8.2 Workflows
 

@@ -143,6 +143,20 @@ For Bash: env vars set (AWS_DEFAULT_REGION, CMP_CREDENTIAL_REGION, etc.)
 For Python: cmp dict injected as global variable
 ```
 
+### Package Dependencies (Requirements)
+
+When a task specifies requirements (package dependencies), they are installed before execution:
+
+| Language | Docker Mode | Local Fallback |
+|----------|-------------|----------------|
+| Python | `pip install -r requirements.txt` inside container | Creates a temporary venv, installs packages, runs task within venv |
+| Bash | `apt-get install` (switches to ubuntu:22.04) | Not supported locally |
+| TypeScript | `npm install` inside container | Not supported locally |
+
+**Python requirements format:** Standard pip format, one package per line (e.g., `boto3>=1.28.0`, `requests==2.31.0`).
+
+The local fallback for Python uses a temporary `venv` directory that is automatically cleaned up after execution. This ensures tasks with dependencies work consistently whether Docker is available or not.
+
 ### Accessing Context in Python Tasks
 
 ```python
