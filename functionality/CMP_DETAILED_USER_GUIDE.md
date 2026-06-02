@@ -806,6 +806,8 @@ Credentials represent your cloud provider accounts and authentication tokens. Th
 
 Navigate to **Infrastructure → Accounts & Credentials → Add Credential** (Admin/Developer) or **Credentials → Add** (User).
 
+> **Tip:** You can also ask the AI Assistant to add a credential (e.g., "Add a new AWS credential"). The assistant will open the credential form securely in the main panel — it will never ask you to type secrets in chat. See [Section 28.6](#286-secure-credential-creation-via-chat) for details.
+
 Select your provider type and fill in the required fields:
 
 #### AWS
@@ -2687,6 +2689,7 @@ The AI Assistant can help with:
 | **Troubleshooting** | "Why did my execution fail?", "Explain this error" |
 | **Analytics** | "Show my budget status", "How many resources are running?" |
 | **Provisioning** | "Provision an AWS EC2 instance", "Open the VM catalog" |
+| **Credential Management** | "Add a new AWS credential", "Set up an Azure account", "Create a GCP credential" |
 | **Cost Questions** | "How much does a t3.large cost in us-east-1?" |
 | **Policy Guidance** | "What policies are active?", "Show governance rules" |
 | **API Execution** | "Run GET /api/v1/catalog" (Developer/Admin only) |
@@ -2724,7 +2727,33 @@ You can say things like:
 
 ---
 
-### 28.6 Tips for Best Results
+### 28.6 Secure Credential Creation via Chat
+
+When you ask the AI Assistant to add, create, or set up a new cloud credential, it will **never** ask you to type sensitive information (access keys, secret keys, tokens) directly in the chat. Instead, it opens the credential creation form in the main UI panel where you can fill in secrets securely.
+
+**How it works:**
+1. Ask the assistant something like "Add a new AWS credential" or "Set up an Azure account"
+2. The assistant opens the credential form in the main panel
+3. If you specified a provider or name, the form fields are pre-populated
+4. Fill in the remaining details (including secrets) in the secure form
+5. Submit the form as normal
+
+**Supported pre-fill fields:**
+- Provider (aws, azure, gcp, github, bearer_token, basic_auth)
+- Name
+- Description
+- Region
+
+**Example prompts:**
+- "Add a new AWS credential called Production US" → Opens form with provider=AWS and name pre-filled
+- "Create a GCP credential" → Opens form with GCP pre-selected
+- "Set up a new cloud account" → Opens the form for you to choose the provider
+
+This ensures that sensitive credentials are never exposed in chat history or logs.
+
+---
+
+### 28.7 Tips for Best Results
 
 - **Be specific** — "How do I add an AWS credential?" works better than "help with credentials"
 - **Use pronouns** — When viewing a resource, "stop this" or "restart it" works naturally
