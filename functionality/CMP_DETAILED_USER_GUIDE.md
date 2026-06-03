@@ -514,7 +514,7 @@ Define parameters that can be passed to the task at runtime:
 | Setting | Description |
 |---------|-------------|
 | **Requirements** | Package dependencies (e.g., `boto3==1.28.0` for Python). One per line. Max 10,000 characters. |
-| **Python Version** | Specific Python version if needed (e.g., "3.11") |
+| **Python Version** | Specific Python version if needed. Supported versions: 3.10, 3.11, 3.12, 3.13, 3.14 (default: host Python) |
 | **Write Output to Payload** | When enabled, task output is stored in the execution payload for downstream steps to use |
 
 ---

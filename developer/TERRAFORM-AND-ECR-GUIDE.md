@@ -200,14 +200,23 @@ terraform output
    ```bash
    aws secretsmanager put-secret-value \
      --secret-id autonimbus-cmp/license-private-key \
-     --secret-string "$(cat vendor_private_key.pem)"
+     --secret-string "$(cat vendor_private_key.pem)" \
+     --region us-east-1
    ```
 
 3. Store your code-signing key:
    ```bash
+    # Generate RSA 4096-bit private key
+  openssl genpkey -algorithm RSA -out vendor_private_key.pem \
+    -pkeyopt rsa_keygen_bits:4096
+
+  # Extract the public key
+  openssl rsa -in vendor_private_key.pem -pubout -out vendor_public_key.pem
+
    aws secretsmanager put-secret-value \
      --secret-id autonimbus-cmp/code-signing-key \
-     --secret-string "$(cat code_signing_key.pem)"
+     --secret-string "$(cat code_signing_key.pem)" \
+     --region us-east-1
    ```
 
 ---
