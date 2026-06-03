@@ -90,6 +90,7 @@ CMP uses feature keys in the license to control what capabilities are available.
 | Tasks | Individual automation steps (scripts, API calls) |
 | Workflows | Multi-step orchestrations with dependencies |
 | Flows | Visual workflow designer |
+| Visual DAG Editor | Drag-and-drop DAG canvas for building workflows visually (gated by `visual_dag_editor` toggle) |
 | Executions | Run history, logs, status monitoring |
 
 ---
@@ -473,3 +474,26 @@ curl -s -H "Authorization: Bearer <token>" \
 # Via UI
 Login as admin → Administration → System → System Status → Licensed Features section
 ```
+
+
+License feature keys vs toggle coverage:
+
+All 17 license keys in license.json are referenced by at least one toggle:
+
+catalog ← service_catalog
+workflows ← executions, provisioning, visual_dag_editor
+cost_management ← cost_models, cost_analytics, live_cost_projections
+policy_governance ← approvals, policies, quotas, audit_logs, compliance_dashboard
+multi_tenancy ← tenants
+budgets ← budgets
+scheduled_jobs ← scheduled_jobs
+event_automation ← event_automation, event_log
+terraform ← terraform_provisioning
+webhooks ← webhooks
+reports ← reports
+cloud_accounts ← credentials, resources
+sso ← sso
+ai_assistant ← chatbot, ai_inline_suggestions, ai_catalog_recommendations, ai_conversation_history
+notifications ← notifications
+infrastructure ← infrastructure
+logging_monitoring ← logging_monitoring
