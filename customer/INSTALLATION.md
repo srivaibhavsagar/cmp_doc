@@ -271,6 +271,18 @@ SSO_ENTITY_ID=https://cmp.yourcompany.com
 SSO_METADATA_URL=https://idp.yourcompany.com/metadata
 ```
 
+### Data Seeding
+
+```bash
+# Control whether sample data is seeded on first startup
+# When true (default), demo workflows, tasks, flows, and catalog items are created
+# when the database is empty. Users and groups are always seeded regardless.
+# Set to false for production deployments where you want a clean platform.
+SEED_SAMPLE_DATA=true   # Options: true, false
+```
+
+> **Note:** This setting only takes effect on first startup when the database tables are empty. Changing it after initial seeding has no effect. Users and groups (admin, developer, user, readonly) are always created regardless of this setting.
+
 ### Encrypting Sensitive Values
 
 For enhanced security, sensitive values can be encrypted at rest. See the [Configuration Reference](CONFIGURATION.md) for details on Fernet encryption.

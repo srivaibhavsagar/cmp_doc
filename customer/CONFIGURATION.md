@@ -71,6 +71,7 @@ Application cannot start. Please set the above values in your .env file or envir
 | `LICENSE_FILE_PATH` | string | No | `/app/license/license.json` | Path to license file inside container | `/app/license/license.json` |
 | `DEBUG` | boolean | No | `false` | Enable debug mode (never in production) | `false` |
 | `LOG_LEVEL` | string | No | `INFO` | Logging level | `INFO`, `WARNING`, `ERROR` |
+| `SEED_SAMPLE_DATA` | boolean | No | `true` | Seed sample workflows, tasks, flows, and catalogs on first startup. Users/groups are always seeded. | `false` |
 
 ### Database Settings
 
