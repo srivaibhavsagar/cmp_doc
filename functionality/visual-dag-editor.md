@@ -137,6 +137,7 @@ Nodes represent individual workflow steps. Each node has an action type that det
 | **http_request** | HTTP | Make an HTTP request to an external endpoint |
 | **builtin.delay** | Wait | Pause execution for a specified duration |
 | **builtin.condition** | Cond | Evaluate a condition to branch execution (rendered as diamond shape) |
+| **builtin.loop** | Loop | Iterate over an array and execute body steps once per item |
 | **terraform** | TF | Execute a Terraform template (plan/apply) |
 
 ### Node Identification
@@ -243,6 +244,7 @@ Click any node to open the **Node Panel** on the right side of the editor. The p
 | **http_request** | Common fields only (URL, method, headers configured via inputs) |
 | **builtin.delay** | Common fields only (duration configured via inputs) |
 | **builtin.condition** | Common fields only (condition expression via inputs) |
+| **builtin.loop** | `loop_over` — expression resolving to an array (e.g., `{{steps.list_instances.data}}`); `loop_variable` — variable name for the current item (default: `"item"`), accessible as `{{loop.<variable>}}` or `{{steps.loop.<variable>}}`; `execution_mode` — `"sequential"` or `"parallel"` |
 
 ### Real-Time Updates
 

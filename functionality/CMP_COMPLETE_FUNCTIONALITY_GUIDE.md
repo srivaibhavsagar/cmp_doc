@@ -447,6 +447,7 @@ Workflows are multi-step DAGs (Directed Acyclic Graphs) that orchestrate multipl
 | `gcp.compute` | GCP Compute operations |
 | `builtin.delay` | Wait for a specified duration |
 | `builtin.condition` | Conditional branching |
+| `builtin.loop` | Iterate over an array, executing scoped body steps for each item |
 | `terraform` | Terraform plan/apply/destroy |
 
 **Step Configuration:**
@@ -456,6 +457,26 @@ Workflows are multi-step DAGs (Directed Acyclic Graphs) that orchestrate multipl
 - `retry_count` — Automatic retry on failure
 - `inputs` — Parameters passed to the step (supports variable interpolation)
 - `output_key` — Custom key for storing step output
+
+**Loop Step (`builtin.loop`):**
+
+The loop step iterates over an array and executes its body steps once per item. Loop scoping follows a direct-children rule:
+
+- **Body steps** — Only steps whose `depends_on` directly includes the loop step are part of the loop body. These execute once per iteration with `{{loop.<variable>}}` and `{{loop.index}}` injected. Loop variables are also accessible as `{{steps.loop.<variable>}}` for consistency with the standard step output referencing pattern.
+- **Post-loop steps** — Steps that depend on the loop's children (but not the loop itself) are outside the loop scope. They execute once after the loop finishes and receive the aggregated loop output.
+
+Example DAG:
+```
+task_A → loop_1 → task_B → task_C
+```
+- `task_B` depends on `loop_1` → runs inside each loop iteration
+- `task_C` depends on `task_B` (not `loop_1`) → runs once after the loop completes
+
+Loop configuration inputs:
+- `loop_over` — Expression resolving to an array (e.g., `{{steps.previous.data.items}}`)
+- `loop_variable` — Variable name for the current item (default: `"item"`)
+- `execution_mode` — `"sequential"` (default) or `"parallel"`
+- `max_iterations` — Safety cap (default: 100)
 
 ### 8.3 Flows
 
