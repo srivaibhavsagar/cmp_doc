@@ -570,7 +570,7 @@ Manage cloud provider accounts used for provisioning and resource management.
 |----------|----------------|
 | **AWS** | Access Key, Secret Key, Region(s) |
 | **Azure** | Client ID, Client Secret (in secret_key), Tenant ID, Subscription ID |
-| **GCP** | Service Account JSON (in secret_key), Project ID |
+| **GCP** | Project ID, Service Account JSON Key (paste or upload), Environment, Default Region, Resource Discovery, Cost Collection, Governance Scans |
 | **GitHub** | Personal Access Token |
 | **Bearer Token** | Token value |
 | **Basic Auth** | Username + Password |
@@ -580,7 +580,7 @@ Manage cloud provider accounts used for provisioning and resource management.
 - Multi-region support (list of regions per credential)
 - Visibility controls: restrict by role, user IDs, or group IDs
 - Active/inactive toggle
-- Validation endpoint to test connectivity
+- Validation endpoint to test connectivity (AWS STS, Azure OAuth2 + ARM, GCP OAuth2 + Resource Manager + API access checks, GitHub user endpoint)
 - Resource groups and tags (Azure)
 - Last-used tracking
 

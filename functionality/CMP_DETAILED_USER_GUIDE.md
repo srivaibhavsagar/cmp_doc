@@ -622,7 +622,20 @@ Use double-curly-brace syntax to reference dynamic values:
 | `{{form.field_name}}` | Value from the catalog order form | `{{form.instance_type}}` |
 | `{{steps.step_id.field}}` | Output from a previous step | `{{steps.create_vpc.vpc_id}}` |
 | `{{credential.access_key}}` | Credential field from the selected cloud account | `{{credential.secret_key}}` |
+| `{{credential.temp_access_token}}` | Short-lived OAuth2 token (GCP) or STS temp key (AWS) | `{{credential.project_id}}` |
 | `{{context.variable_name}}` | Shared variable value | `{{context.default_region}}` |
+
+**Provider-specific credential template variables:**
+
+| Variable | AWS | Azure | GCP |
+|----------|-----|-------|-----|
+| `{{credential.temp_access_key_id}}` | STS access key | — | — |
+| `{{credential.temp_secret_access_key}}` | STS secret key | — | — |
+| `{{credential.temp_session_token}}` | STS session token | — | — |
+| `{{credential.temp_access_token}}` | — | — | OAuth2 access token (1-hour TTL) |
+| `{{credential.temp_token_expiration}}` | — | — | Token expiry (ISO timestamp) |
+| `{{credential.project_id}}` | — | — | GCP project ID |
+| `{{credential.region}}` | Effective region | Effective location | Effective region |
 
 ---
 
@@ -838,9 +851,24 @@ Select your provider type and fill in the required fields:
 | Field | Required | Description |
 |-------|----------|-------------|
 | **Name** | Yes | Friendly name (e.g., "GCP Analytics Project") |
-| **Secret Key** | Yes | Service Account JSON key file content (encrypted at rest) |
-| **Project ID** | Yes | GCP Project ID |
+| **Project ID** | Yes | GCP Project ID (e.g., `my-gcp-project-123`). Found in GCP Console → Project Settings. |
+| **Service Account JSON Key** | Yes | Service account key in JSON format. Can be pasted directly or uploaded as a `.json` file. Private keys are encrypted before storage and never displayed after save. |
+| **Environment** | No | Deployment environment label: Development, Test, UAT, or Production |
+| **Default Region** | No | Default GCP region for operations. Regions are fetched dynamically when the dropdown is focused. |
+| **Resource Discovery** | No | Enable automatic discovery of cloud resources in this project (checkbox) |
+| **Cost Collection** | No | Enable cost data collection for this project (checkbox) |
+| **Governance Scans** | No | Enable policy governance scanning for this project (checkbox) |
 | **Description** | No | Notes about this account |
+
+**Service Account JSON input modes:**
+- **Paste JSON** — Paste the full JSON key content directly into the text area.
+- **Upload File** — Click to upload a `.json` key file from your local machine.
+
+**Test Connection:** Before saving, click **Test Connection** to verify the service account credentials. The button is enabled once Project ID and Service Account JSON are provided. A successful test confirms authentication and project access.
+
+> **How to create a Service Account Key:** GCP Console → IAM & Admin → Service Accounts → Select or create an account → Keys tab → Add Key → Create new key (JSON). Ensure the service account has at minimum: `Viewer`, `Compute Viewer`, and `Storage Object Viewer` roles.
+
+> **Security: Workflow Execution** — When a GCP credential is used in workflow executions, a short-lived OAuth2 access token (1-hour TTL) is generated from the service account key. Only this temporary token is forwarded to workflow steps via `{{credential.temp_access_token}}` and `{{credential.project_id}}`. The raw service account JSON key is never exposed to task code or step outputs.
 
 #### GitHub
 
@@ -893,10 +921,10 @@ After adding a credential:
    - ✗ **Failed** — Authentication failed (check keys, permissions, or expiry)
 
 Validation checks:
-- AWS: Calls STS GetCallerIdentity
-- Azure: Authenticates with the service principal
-- GCP: Validates the service account JSON
-- GitHub: Calls the authenticated user endpoint
+- **AWS:** Calls STS GetCallerIdentity to verify access key and secret
+- **Azure:** Authenticates the service principal via OAuth2 token and verifies subscription access
+- **GCP:** Parses the service account JSON, authenticates with Google OAuth2, verifies project access via Cloud Resource Manager, and reports API access status for Compute Engine, Cloud Storage, and IAM
+- **GitHub:** Calls the authenticated user endpoint to verify the token and confirm username match
 
 ---
 
@@ -917,6 +945,28 @@ Validation checks:
    - Visible Groups: `platform-team`
 6. Click **Save**
 7. Click **Validate** to confirm the credentials work
+
+---
+
+### 6.5 Example: Adding a GCP Account
+
+1. Navigate to **Infrastructure → Accounts & Credentials**
+2. Click **Add Credential**
+3. Select Provider: **GCP**
+4. Fill in:
+   - Name: `GCP Analytics - Production`
+   - Project ID: `analytics-prod-123456`
+   - Environment: `Production`
+   - Default Region: `us-central1`
+   - Enable: ☑ Resource Discovery, ☑ Cost Collection, ☑ Governance Scans
+5. Provide the Service Account JSON:
+   - Choose **Paste JSON** and paste the full key content, or
+   - Choose **Upload File** and select your `.json` key file
+6. Click **Test Connection** — wait for the green "Connection Verified ✓" confirmation
+7. Set Visibility:
+   - Visible Roles: `admin`, `developer`
+   - Visible Groups: `data-engineering`
+8. Click **Save**
 
 ---
 

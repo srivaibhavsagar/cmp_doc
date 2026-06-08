@@ -406,6 +406,14 @@ GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/gcp-service-account.json
 
 Mount the service account JSON file into the container via a volume or Docker secret.
 
+**UI Credential Form:** When adding GCP credentials through the CMP interface, users can:
+- Paste the Service Account JSON directly or upload the `.json` key file
+- Set Project ID, Environment (Development/Test/UAT/Production), and Default Region
+- Enable Resource Discovery, Cost Collection, and Governance Scans toggles
+- Test the connection before saving to verify authentication and project access
+
+**Required IAM Roles** for the service account: `Viewer`, `Compute Viewer`, `Storage Object Viewer` (minimum). Add additional roles based on which features are enabled.
+
 ---
 
 ## Redis Configuration

@@ -180,6 +180,27 @@ ec2 = boto3.client(
 )
 ```
 
+### Accessing Context in Python Tasks (GCP)
+
+```python
+# For GCP credentials, a short-lived OAuth2 access token is generated
+# from the service account key. The raw key is never exposed to task code.
+credential = cmp["credential"]
+
+# Available GCP credential fields:
+project_id = credential["project_id"]                 # GCP project ID
+access_token = credential["temp_access_token"]        # OAuth2 token (1-hour TTL)
+expiration = credential["temp_token_expiration"]      # ISO timestamp of token expiry
+
+# Use with google-cloud client libraries:
+from google.oauth2.credentials import Credentials
+from google.cloud import compute_v1
+
+creds = Credentials(token=access_token)
+client = compute_v1.InstancesClient(credentials=creds)
+instances = client.list(project=project_id, zone="us-central1-a")
+```
+
 ### Accessing Context in Bash Tasks
 
 ```bash
@@ -375,8 +396,8 @@ If `resource_type` is not set in form_data or step outputs, the platform infers 
 | `CMP_CONTEXT` | Full CMP context as JSON |
 | `CMP_CREDENTIAL_PROVIDER` | `aws`, `azure`, or `gcp` |
 | `CMP_CREDENTIAL_REGION` | Effective region (with form_data override applied) |
-| `CMP_CREDENTIAL_ACCESS_KEY` | STS temp access key (AWS) or client ID (Azure) |
-| `CMP_CREDENTIAL_SECRET_KEY` | STS temp secret key (AWS) or client secret (Azure) |
+| `CMP_CREDENTIAL_ACCESS_KEY` | STS temp access key (AWS), client ID (Azure), or OAuth2 access token (GCP) |
+| `CMP_CREDENTIAL_SECRET_KEY` | STS temp secret key (AWS), client secret (Azure), or OAuth2 access token (GCP) |
 | `CMP_CREDENTIAL_SESSION_TOKEN` | STS session token (AWS only) |
 
 ### AWS-Specific (set when provider is `aws`)
@@ -397,6 +418,7 @@ If `resource_type` is not set in form_data or step outputs, the platform infers 
 | Variable | Description |
 |----------|-------------|
 | `CLOUDSDK_COMPUTE_REGION` | Effective region — gcloud CLI uses this |
+| `GOOGLE_OAUTH_ACCESS_TOKEN` | Short-lived OAuth2 access token (1-hour TTL) — gcloud CLI and Terraform google provider use this automatically |
 
 ---
 
@@ -431,7 +453,7 @@ If `resource_type` is not set in form_data or step outputs, the platform infers 
 
 2. **For AWS, rely on env vars** — `AWS_DEFAULT_REGION` is set automatically. boto3 and AWS CLI pick it up without explicit configuration.
 
-3. **Don't store long-lived credentials** — use `credential["temp_access_key_id"]` and related STS fields. They expire automatically.
+3. **Don't store long-lived credentials** — use `credential["temp_access_key_id"]` and related STS fields (AWS), or `credential["temp_access_token"]` (GCP). They expire automatically.
 
 4. **Access prior step outputs** via `cmp["task_outputs"]` (Python) or parse `$CMP_CONTEXT` (Bash).
 
