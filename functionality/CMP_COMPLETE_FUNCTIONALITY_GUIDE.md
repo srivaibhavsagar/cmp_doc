@@ -348,7 +348,8 @@ Each catalog item consists of:
 | **Allowed Roles** | Which roles can see/order this item |
 | **Allowed Groups** | Which groups can see/order this item |
 | **Approval Settings** | Whether approval is required, who can approve |
-| **Cost Estimate** | Whether to show CMP charges and live cloud pricing |
+| **Cost Estimate** | Whether to show CMP charges based on cost models |
+| **Live Pricing** | Whether to show real-time cloud provider pricing. The pricing/cost widget appears when either setting is enabled. |
 
 ### Form Builder
 
@@ -370,7 +371,7 @@ Advanced form features:
 2. Selects an item and fills out the dynamic form
 3. System evaluates **policies** (deny/warn) against form data
 4. System checks **quotas** for the user/group/tenant
-5. System calculates **cost estimate** (CMP charges + cloud pricing)
+5. System shows **pricing widget** — labeled "Cost Estimate" if cost models apply, or "Live Pricing" if only live pricing is enabled
 6. If approval required → creates approval request
 7. If no approval → triggers the linked flow immediately
 8. Execution tracked in the Executions page
@@ -673,6 +674,9 @@ The inventory system tracks all provisioned resources with lifecycle management.
 - Tags and catalog reference
 - Terraform workspace link
 
+**Status Recovery:**
+Resources marked as `destroyed` are normally treated as terminal and cannot transition to other statuses. However, if a cloud provider sync confirms the resource is actually alive (`active` or `stopped`), the inventory record is automatically recovered to reflect the true state. This handles cases where a resource was incorrectly marked destroyed (e.g., GCP VMs in TERMINATED state were previously misinterpreted as deleted when they are actually stopped).
+
 **Lease Features:**
 - Set destroy/expiry dates on resources
 - Automatic warnings at 3 days and 1 day before expiry
@@ -967,6 +971,8 @@ Aggregated cost summaries broken down by:
 **API:** `/api/v1/cloud-pricing`
 
 Real-time pricing data from cloud providers used during catalog ordering to show estimated costs before submission.
+
+**Credential-Aware Lookups:** When a credential is selected in the catalog request form, the pricing lookup passes it to the backend. This applies to all providers (AWS, Azure, GCP) and enables account-specific pricing where supported.
 
 ---
 

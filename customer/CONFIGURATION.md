@@ -410,9 +410,9 @@ Mount the service account JSON file into the container via a volume or Docker se
 - Paste the Service Account JSON directly or upload the `.json` key file
 - Set Project ID, Environment (Development/Test/UAT/Production), and Default Region
 - Enable Resource Discovery, Cost Collection, and Governance Scans toggles
-- Test the connection before saving to verify authentication and project access
+- Test the connection before saving — validation passes if the service account can access at least one of: Compute Engine, Cloud Storage, or IAM APIs
 
-**Required IAM Roles** for the service account: `Viewer`, `Compute Viewer`, `Storage Object Viewer` (minimum). Add additional roles based on which features are enabled.
+**Required IAM Roles** for the service account: at least one of `Viewer`, `Compute Viewer`, `Storage Object Viewer`, or `Service Account User`. For full project metadata in validation results, also grant the `Browser` role. Add additional roles based on which features are enabled.
 
 ---
 

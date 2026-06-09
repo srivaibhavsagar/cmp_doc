@@ -77,7 +77,7 @@ BYOUI catalogs get the same platform features as form_builder catalogs:
 |---------|-------------|
 | **Recent Requests & Pre-fill** | Shown above the iframe — users can click to pre-fill from past executions |
 | **Credential Selector** | For `day1` catalogs, the cloud credential dropdown appears above the iframe |
-| **Cost Estimate** | If cost models are configured, the cost widget appears below the iframe |
+| **Cost Estimate / Live Pricing** | The cost widget appears below the iframe when either cost models are configured or live pricing is enabled. The widget header shows "Cost Estimate" or "Live Pricing" depending on which is active. |
 | **Approval Workflow** | If `requires_approval` is set, approval info is shown below the iframe |
 | **Reusable Components** | Accessible via the postMessage bridge (see below) |
 | **Flow Execution** | Form data is passed to the linked flow just like form_builder mode |

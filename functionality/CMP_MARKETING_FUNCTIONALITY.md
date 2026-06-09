@@ -21,7 +21,7 @@ Give your teams a curated storefront of pre-approved cloud services they can ord
 - **Visual Form Builder** — Design rich request forms with dropdowns, conditional fields, validations, and multi-tab layouts without writing code
 - **Custom UI Support** — Bring your own HTML/JS interface for advanced ordering experiences
 - **Role-Based Visibility** — Control which teams and roles can see and order each service
-- **Real-Time Cost Estimates** — Show users the projected cost before they submit, including platform charges and live cloud pricing
+- **Real-Time Cost Estimates** — Show users the projected cost before they submit, including platform charges and/or live cloud pricing. The widget adapts its label and content based on which pricing sources are enabled.
 - **Approval Workflows** — Route high-risk or high-cost requests through configurable approval chains
 - **Conditional Approvals** — Only require approval when specific conditions are met (e.g., production environment, large instance types)
 

@@ -314,6 +314,25 @@ Common causes:
 - AI feature not licensed (check license status)
 - AI feature disabled by admin toggle
 
+### Cloud Credential Validation
+
+**GCP "Test Connection" fails with permission error:**
+
+If you see: *"Service account does not have access to project '...'. Grant at least one of: Viewer, Compute Viewer, Storage Object Viewer, or Service Account User role."*
+
+This means the service account cannot access any GCP API for the specified project. Solutions:
+1. Verify the Project ID is correct
+2. Grant at least one role to the service account in the target project's IAM settings
+3. Acceptable minimum roles (any one is sufficient): `Viewer`, `Compute Viewer`, `Storage Object Viewer`, or `Service Account User`
+
+**GCP validation succeeds but shows "lacks resourcemanager.projects.get" note:**
+
+This is informational, not an error. The service account can operate within the project but cannot read project-level metadata. To resolve the note, grant the `Browser` role which provides `resourcemanager.projects.get` permission.
+
+**GCP validation shows partial API access (some ✓, some ✗):**
+
+The test checks three APIs: Compute Engine, Cloud Storage, and IAM. A checkmark (✓) means the service account can access that API. An ✗ means it lacks permissions for that specific API. Validation passes as long as at least one API is accessible. Grant additional roles if you need access to the APIs showing ✗.
+
 ### Redis
 
 **Redis connection failures:**

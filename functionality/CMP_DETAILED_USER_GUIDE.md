@@ -332,7 +332,9 @@ If both are configured, a user must match at least one role OR belong to at leas
 | Setting | Description |
 |---------|-------------|
 | **Show Cost Estimate** | Toggle on/off. When enabled, users see an estimated cost before ordering based on Cost Models. |
-| **Show Live Pricing** | Toggle on/off. When enabled, real-time cloud provider pricing is displayed alongside the estimate. |
+| **Show Live Pricing** | Toggle on/off. When enabled, real-time cloud provider pricing is displayed. If Live Pricing is enabled but Cost Estimate is disabled, the widget appears with a "Live Pricing" header instead of "Cost Estimate". |
+
+> **Note:** The pricing/cost widget appears whenever *either* setting is enabled. If only Live Pricing is on, the widget shows live cloud prices without the CMP cost model breakdown. If only Cost Estimate is on, the widget shows the cost model calculation. If both are on, the widget shows both sections under the "Cost Estimate" header.
 
 ---
 
@@ -864,9 +866,9 @@ Select your provider type and fill in the required fields:
 - **Paste JSON** — Paste the full JSON key content directly into the text area.
 - **Upload File** — Click to upload a `.json` key file from your local machine.
 
-**Test Connection:** Before saving, click **Test Connection** to verify the service account credentials. The button is enabled once Project ID and Service Account JSON are provided. A successful test confirms authentication and project access.
+**Test Connection:** Before saving, click **Test Connection** to verify the service account credentials. The button is enabled once Project ID and Service Account JSON are provided. A successful test confirms authentication and checks access to Compute Engine, Cloud Storage, and IAM APIs. The test passes if the service account can access at least one of these APIs, even if it lacks the `resourcemanager.projects.get` permission.
 
-> **How to create a Service Account Key:** GCP Console → IAM & Admin → Service Accounts → Select or create an account → Keys tab → Add Key → Create new key (JSON). Ensure the service account has at minimum: `Viewer`, `Compute Viewer`, and `Storage Object Viewer` roles.
+> **How to create a Service Account Key:** GCP Console → IAM & Admin → Service Accounts → Select or create an account → Keys tab → Add Key → Create new key (JSON). The service account needs at least one of: `Viewer`, `Compute Viewer`, `Storage Object Viewer`, or `Service Account User` role. For full project metadata in test results, also grant the `Browser` role (which provides `resourcemanager.projects.get`).
 
 > **Security: Workflow Execution** — When a GCP credential is used in workflow executions, a short-lived OAuth2 access token (1-hour TTL) is generated from the service account key. Only this temporary token is forwarded to workflow steps via `{{credential.temp_access_token}}` and `{{credential.project_id}}`. The raw service account JSON key is never exposed to task code or step outputs.
 
@@ -1043,6 +1045,8 @@ From the resource detail page:
 | Region | Deployment region |
 | Status | Active, Stopped, Expired, or Destroyed |
 | Catalog Name | Which catalog item was used to provision |
+
+> **Note:** If a resource is marked "Destroyed" but a cloud provider sync later confirms it is actually running or stopped, CMP automatically recovers the inventory record to reflect the correct status. This can occur with GCP VMs whose TERMINATED state (meaning stopped) was previously misinterpreted as deleted.
 
 **Lease Management:**
 
