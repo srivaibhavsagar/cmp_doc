@@ -873,6 +873,17 @@ pending → approved → (triggers execution)
 - Flow triggers on approve/reject/cancel events
 - Full audit trail
 
+**Cart Order Approvals:**
+
+When a shopping cart checkout produces an order that requires approval, the approval is surfaced in the standard Approvals page alongside all other catalog requests — identified by a **Cart Order** badge next to the request name. Approving or rejecting it works the same way as any other request; no separate workflow or tab is needed.
+
+- **Approve** — transitions the order to `Approved` and initiates provisioning for all items in the order.
+- **Reject** — transitions the order to `Cancelled`, records the rejection reason (from the comment field), and emits an `APPROVAL_REJECTED` event. The comment defaults to `"Rejected via approvals"` if left blank.
+
+Expanding a cart order approval shows an **Order Items** summary listing each catalog item, its quantity, and estimated cost, plus a total estimated cost and a link to the full order detail page.
+
+This ensures all approval actions — whether for individual catalog requests or bulk cart orders — are handled from a single place.
+
 ---
 
 ## 12. Cost Management & Finance

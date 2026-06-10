@@ -1631,6 +1631,8 @@ If you are a designated approver:
    - **Reject** — The request is denied; requester is notified
 5. Optionally add a **Comment** explaining your decision
 
+**Cart order approvals:** When a user checks out a shopping cart that requires approval, the resulting order appears in the Approvals page just like any other catalog request — identified by a **Cart Order** badge next to the request name. Expanding the request shows an **Order Items** summary (item names, quantities, and estimated costs) along with a link to the full order detail page. Approving it kicks off provisioning for all items in the order. Rejecting it cancels the entire order — the comment you enter is recorded as the rejection reason (if you leave the comment blank, the system records "Rejected via approvals").
+
 ---
 
 ### 14.3 Adding Comments
