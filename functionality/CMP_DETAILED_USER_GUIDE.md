@@ -398,11 +398,12 @@ Example: Require approval only when `instance_type` equals "x1.16xlarge" OR `dis
 6. Click **Submit Order**
 7. If approval is required:
    - Your request enters the approval queue
+   - You are automatically redirected to the **Approvals** page where you can see your pending request
    - You receive a notification when approved/rejected
    - Once approved, execution begins automatically
 8. If no approval needed:
    - Execution starts immediately
-   - Track progress in the **Executions** section
+   - You are automatically redirected to the **Executions** page to track progress
 
 ---
 
@@ -807,6 +808,21 @@ For running or pending executions:
 3. Confirm the cancellation
 4. The execution status changes to "Cancelled"
 5. Any in-progress cloud operations may need manual cleanup
+
+---
+
+### 5.5 Automatic Order Status Updates
+
+If an execution was triggered from a shopping cart order, the system automatically updates the order when the execution finishes:
+
+- **Execution succeeds** — the linked order item is marked as completed and resource details (name, ID, type, region) are recorded on it
+- **Execution fails or is cancelled** — the linked order item is marked as failed
+
+You do not need to manually update order status. Navigate to **Orders** to see the consolidated status of all items in your order. The overall order status is recalculated automatically based on individual item outcomes.
+
+**Terminal statuses:** Orders in `Completed`, `Cancelled`, `Rejected`, or `Timed Out` status are considered final and cannot transition further.
+
+**Retryable statuses:** Orders in `Failed` or `Partially Completed` status can be retried, which transitions them back to `Provisioning` to re-execute the failed requests. This allows recovery from transient cloud errors or configuration issues without creating a new order.
 
 ---
 
@@ -1452,7 +1468,7 @@ Drift detection identifies when the actual cloud infrastructure has diverged fro
 
 ### 12.1 Creating a Policy
 
-Policies enforce governance rules on catalog orders. They can block (deny) or warn users when their requested configuration violates organizational standards.
+Policies enforce governance rules on catalog orders. They can block (deny) or warn users when their requested configuration violates organizational standards. Policy enforcement applies to all user-initiated submission paths: direct catalog, cart checkout, and AI assistant provisioning.
 
 Navigate to **Administration → Policies → Create New Policy**.
 
@@ -1569,13 +1585,15 @@ Navigate to **Administration → Quotas → Create New Quota**.
 
 ### 13.2 How Quotas are Enforced
 
-When a user submits a catalog order:
+When a user submits a catalog order (via direct catalog submission, cart checkout, or AI assistant):
 1. CMP checks all applicable quotas for the user, their groups, and the tenant
 2. The current count of the resource type is compared against the max count
 3. If any quota would be exceeded:
    - The order is **blocked**
    - The user sees a message: "Quota exceeded: You have X of Y allowed [resource_type]"
 4. If within limits, the order proceeds normally
+
+**Enforcement applies to all user-initiated submission paths:** direct catalog, cart checkout, and AI assistant provisioning. System-triggered executions (scheduled jobs, event automation) are not subject to quota checks.
 
 **Quota Check Result includes:**
 - Whether the action is allowed
@@ -1606,8 +1624,9 @@ When you order a catalog item that requires approval:
 2. Click **Submit Order**
 3. Instead of immediate execution, you see: "Your request has been submitted for approval"
 4. The request appears in the **Approvals** section with status "Pending"
-5. You can add a **Justification** explaining why you need this resource
-6. Designated approvers receive a notification
+5. An order is automatically created with **Pending Approval** status — visible on the **Orders** page so you can track it alongside your other orders
+6. You can add a **Justification** explaining why you need this resource
+7. Designated approvers receive a notification
 
 **What approvers see:**
 - Requester name and email
@@ -1631,7 +1650,7 @@ If you are a designated approver:
    - **Reject** — The request is denied; requester is notified
 5. Optionally add a **Comment** explaining your decision
 
-**Cart order approvals:** When a user checks out a shopping cart that requires approval, the resulting order appears in the Approvals page just like any other catalog request — identified by a **Cart Order** badge next to the request name. Expanding the request shows an **Order Items** summary (item names, quantities, and estimated costs) along with a link to the full order detail page. Approving it kicks off provisioning for all items in the order. Rejecting it cancels the entire order — the comment you enter is recorded as the rejection reason (if you leave the comment blank, the system records "Rejected via approvals").
+**Cart order approvals:** When a user checks out a shopping cart that requires approval, the resulting order appears in the Approvals page just like any other catalog request — identified by a **Cart Order** badge next to the request name. Expanding the request shows an **Order Items** summary (item names, quantities, and estimated costs) along with a link to the full order detail page. Approving it kicks off provisioning for all items in the order. Rejecting it transitions the order to `Rejected` status (a terminal state) — the comment you enter is recorded as the rejection reason (if you leave the comment blank, the system records "Rejected via approvals").
 
 ---
 
@@ -2809,7 +2828,26 @@ This ensures that sensitive credentials are never exposed in chat history or log
 
 ---
 
-### 28.7 Tips for Best Results
+### 28.7 Governance Enforcement (Policies & Quotas)
+
+When you provision a resource through the AI Assistant, the same governance rules that apply to direct catalog submissions are enforced:
+
+**Policy Checks:**
+- All active policies matching the catalog item (by ID or tags) are evaluated against your form data
+- If a policy rule with **Deny** effect triggers, the assistant responds with the policy violation message and the request is blocked
+- Warning-level policies are also surfaced before the request proceeds
+
+**Quota Checks:**
+- User-level quotas are checked first (how many resources of this type *you* already have)
+- Group-level quotas are checked next (if you belong to any groups with quota limits)
+- Tenant-level quotas are checked last (organization-wide limits)
+- If any quota would be exceeded, the assistant responds with a message indicating the current usage and limit (e.g., "Quota exceeded: 5/5 ec2_instance(s) in use. Contact your admin to increase the limit.")
+
+**Important:** These checks happen *before* the execution is created — no resources are provisioned if a policy or quota blocks the request. This ensures consistent governance regardless of how you submit requests (direct catalog, cart checkout, or AI assistant).
+
+---
+
+### 28.8 Tips for Best Results
 
 - **Be specific** — "How do I add an AWS credential?" works better than "help with credentials"
 - **Use pronouns** — When viewing a resource, "stop this" or "restart it" works naturally

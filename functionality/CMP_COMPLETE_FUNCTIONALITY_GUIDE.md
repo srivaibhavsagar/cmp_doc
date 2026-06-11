@@ -372,7 +372,7 @@ Advanced form features:
 3. System evaluates **policies** (deny/warn) against form data
 4. System checks **quotas** for the user/group/tenant
 5. System shows **pricing widget** — labeled "Cost Estimate" if cost models apply, or "Live Pricing" if only live pricing is enabled
-6. If approval required → creates approval request
+6. If approval required → creates approval request **and** a linked order with `Pending Approval` status (visible on the Orders page)
 7. If no approval → triggers the linked flow immediately
 8. Execution tracked in the Executions page
 
@@ -522,6 +522,43 @@ pending → running → success
 - Output data produced
 - Error details with stack traces
 - Cost breakdown
+
+**Order Status Sync:**
+
+**Order State Machine:**
+
+| Status | Allowed Transitions | Terminal? |
+|--------|-------------------|-----------|
+| `Draft` | Pending Approval, Approved, Cancelled | No |
+| `Pending Approval` | Approved, Rejected, Cancelled, Timed Out | No |
+| `Approved` | Provisioning, Cancelled | No |
+| `Provisioning` | Completed, Partially Completed, Failed, Cancelled, Timed Out | No |
+| `Completed` | — | Yes |
+| `Partially Completed` | Provisioning | No (retryable) |
+| `Failed` | Provisioning | No (retryable) |
+| `Rejected` | — | Yes |
+| `Cancelled` | — | Yes |
+| `Timed Out` | — | Yes |
+
+**Retryable Orders:**
+
+Orders in `Failed` or `Partially Completed` status can be retried. Retrying transitions the order back to `Provisioning` and re-executes the failed provisioning requests. This allows users to fix configuration issues or wait for transient cloud errors to resolve, then reattempt provisioning without creating a new order.
+
+When an execution is linked to an order (via a provisioning request), the orchestrator automatically syncs the execution result back to the order upon completion:
+
+- **Execution succeeds** → linked provisioning request marked `completed`; resource name, ID, type, and region captured on the request
+- **Execution fails** → linked provisioning request marked `failed` with error message
+- **Execution cancelled** → linked provisioning request marked `failed` (reason: cancelled)
+
+After updating the request, the system recalculates the parent order status based on all its requests:
+- All requests completed → order status becomes `completed`
+- All requests failed → order status becomes `failed`
+- All requests timed out or failed → order status becomes `failed`
+- Mix of completed and failed/timed out → order status becomes `partially_completed`
+- Any request still provisioning → order remains in `provisioning`
+- Approval window expired with no response → order status becomes `timed_out`
+
+This sync is best-effort — if it fails (e.g., no linked order exists for older executions), the execution itself is unaffected.
 
 ### 8.5 Catalog Components
 
@@ -872,13 +909,36 @@ pending → approved → (triggers execution)
 - Automatic execution on approval
 - Flow triggers on approve/reject/cancel events
 - Full audit trail
+- Implicit order creation — every approval request automatically creates a linked order with `Pending Approval` status so that all requests (not just cart orders) are visible on the Orders page from the moment they are submitted
+
+**Implicit Order Creation:**
+
+When a user submits any catalog request that requires approval, the system automatically creates an order record in `Pending Approval` status alongside the approval request. This means:
+
+- The request is immediately visible on the **Orders** page — users can track it without navigating to Approvals.
+- A provisioning request is pre-created within the order, ready to be linked to an execution once approved.
+- The approval record stores the linked `order_id` so that approval and execution can later be correlated.
+- When the approval is **approved**, the order transitions to provisioning and the execution is linked to the pre-created provisioning request.
+- When the approval is **rejected**, the order transitions to `Rejected` (terminal state). When the approval is **cancelled**, the order transitions to `Cancelled` (terminal state).
+
+This applies to both individual catalog requests and cart order checkouts.
+
+**Order Lookup by Execution:**
+
+If you have an execution ID and need to find the associated order, use:
+
+```
+GET /api/v1/orders/by-execution/{execution_id}
+```
+
+This returns `{ "order_id": "ORD-xxxx", "execution_id": "..." }` and is useful when navigating from execution logs or automation results back to the user-facing order context.
 
 **Cart Order Approvals:**
 
 When a shopping cart checkout produces an order that requires approval, the approval is surfaced in the standard Approvals page alongside all other catalog requests — identified by a **Cart Order** badge next to the request name. Approving or rejecting it works the same way as any other request; no separate workflow or tab is needed.
 
 - **Approve** — transitions the order to `Approved` and initiates provisioning for all items in the order.
-- **Reject** — transitions the order to `Cancelled`, records the rejection reason (from the comment field), and emits an `APPROVAL_REJECTED` event. The comment defaults to `"Rejected via approvals"` if left blank.
+- **Reject** — transitions the order to `Rejected` (a terminal state), records the rejection reason (from the comment field), and emits an `APPROVAL_REJECTED` event. The comment defaults to `"Rejected via approvals"` if left blank.
 
 Expanding a cart order approval shows an **Order Items** summary listing each catalog item, its quantity, and estimated cost, plus a total estimated cost and a link to the full order detail page.
 
@@ -1206,7 +1266,7 @@ The assistant dynamically adapts based on:
 ### Capabilities
 
 - **Resource Actions** — Start, stop, restart, terminate resources directly via natural language
-- **Catalog Provisioning** — Open provisioning forms, recommend catalogs based on intent
+- **Catalog Provisioning** — Open provisioning forms, recommend catalogs based on intent. Submissions are subject to the same policy and quota enforcement as direct catalog orders.
 - **Troubleshooting** — Analyze failed executions, explain errors, suggest fixes
 - **Analytics** — Platform summaries, budget status, execution metrics, resource counts
 - **API Execution** — Developers/admins can run any CMP API endpoint through the assistant
@@ -1214,6 +1274,14 @@ The assistant dynamically adapts based on:
 - **Lease Management** — Apply/remove resource leases via conversation
 - **Approval Management** — View, approve, or reject requests (admin)
 - **Navigation** — Guide users to the correct page for any task
+
+### Governance Enforcement
+
+When provisioning via the AI Assistant, all governance checks are applied before creating an execution:
+- **Policies** — Active deny/warn rules are evaluated against form data and catalog tags
+- **Quotas** — User, group, and tenant-level resource limits are checked
+
+If a policy violation or quota limit blocks the request, the assistant returns a clear error message explaining why. No execution is created.
 
 ### Ownership-Aware Data Access
 
@@ -1284,12 +1352,12 @@ Admins can customize the email subject and body for each notification event type
 | `approval.pending` | New approval request submitted | `catalog_name`, `requested_by`, `approval_id`, `justification` |
 | `approval.approved` | Request approved | `catalog_name`, `actioned_by`, `comment` |
 | `approval.rejected` | Request rejected | `catalog_name`, `actioned_by`, `comment` |
-| `resource.provision.completed` | Resource provisioned successfully | `resource_name`, `resource_type`, `execution_id`, `duration_ms` |
-| `resource.provision.failed` | Resource provisioning failed | `resource_name`, `resource_type`, `execution_id`, `duration_ms` |
+| `resource.provision.completed` | Resource provisioned successfully | `resource_name`, `resource_type`, `order_id`, `duration_ms` |
+| `resource.provision.failed` | Resource provisioning failed | `resource_name`, `resource_type`, `order_id`, `duration_ms` |
 | `cost.threshold.exceeded` | Budget threshold crossed | `budget_name`, `threshold_pct`, `current_spend`, `budget_amount`, `current_pct`, `resource_name` |
 | `catalog.requested` | Catalog item requested | `catalog_name`, `requested_by`, `catalog_type`, `status` |
-| `catalog.completion.success` | Catalog execution succeeded | `catalog_name`, `execution_id`, `duration_ms`, `step_count`, `total_steps` |
-| `catalog.completion.failure` | Catalog execution failed | `catalog_name`, `execution_id`, `failed_step`, `error` |
+| `catalog.completion.success` | Catalog execution succeeded | `catalog_name`, `order_id`, `duration_ms`, `step_count`, `total_steps` |
+| `catalog.completion.failure` | Catalog execution failed | `catalog_name`, `order_id`, `failed_step`, `error` |
 
 #### Per-Event Enable/Disable
 
@@ -1494,6 +1562,14 @@ All authenticated routes include the tenant slug:
 | PUT | `/catalog/{id}` | Update catalog item |
 | DELETE | `/catalog/{id}` | Delete catalog item |
 | POST | `/catalog/{id}/order` | Order from catalog |
+
+### Orders
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/orders` | List orders |
+| GET | `/orders/{order_id}` | Get order detail |
+| GET | `/orders/by-execution/{execution_id}` | Look up parent order for a given execution |
 
 ### Provisioning
 
