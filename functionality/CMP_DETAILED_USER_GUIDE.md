@@ -2027,6 +2027,19 @@ Define what happens when the rule triggers. Multiple actions can be configured p
 | method | HTTP method (POST, PUT, etc.) |
 | headers | Custom headers (key-value pairs) |
 | body_template | JSON body with event placeholders |
+| auth_type | Authentication method: `none`, `bearer`, `basic`, `api_key`, or `credential` |
+
+**Authentication options for Call Webhook / Call API:**
+
+| auth_type | Additional Settings | Description |
+|-----------|-------------------|-------------|
+| `none` | — | No authentication (default) |
+| `bearer` | `auth_token` | Injects `Authorization: Bearer <token>`. Supports event placeholders (e.g., `{{metadata.token}}`) |
+| `basic` | `auth_username`, `auth_password` | Injects `Authorization: Basic <base64>` |
+| `api_key` | `api_key_header`, `api_key_value` | Injects a custom header (default header name: `X-API-Key`) |
+| `credential` | `credential_id` | Uses a CMP-managed credential from the Credentials store. Supports bearer_token, basic_auth, github, and cloud provider credentials |
+
+> **Tip:** Using `auth_type: credential` is the most secure option — secrets remain encrypted in CMP's credential store and are decrypted only at execution time. The credential must be active; inactive or deleted credentials will result in unauthenticated requests.
 
 **Call API:**
 
@@ -2036,7 +2049,7 @@ Define what happens when the rule triggers. Multiple actions can be configured p
 | method | HTTP method |
 | headers | Custom headers |
 | body_template | JSON body with placeholders |
-| auth | Authentication configuration |
+| auth_type | Authentication method (same options as Call Webhook above) |
 
 **Execute Task:**
 
@@ -2054,7 +2067,123 @@ Define what happens when the rule triggers. Multiple actions can be configured p
 
 ---
 
-### 17.2 Example: "Notify Slack on Failed Provisioning" Rule
+### 17.2 Available Placeholders for Templates
+
+When building templates (subject, body, or metadata), you can reference event data using `{{event.<path>}}` syntax. The available fields depend on the event type.
+
+#### Common Fields (Available for All Events)
+
+These fields are available regardless of which event type triggers the rule:
+
+| Placeholder | Description |
+|-------------|-------------|
+| `event_type` | The event type string (e.g., "resource.provision.failed") |
+| `event_id` | Unique identifier for this event instance |
+| `timestamp` | ISO 8601 timestamp when the event occurred |
+| `tenant_id` | Tenant the event belongs to |
+| `source` | System component that emitted the event |
+| `actor.user_id` | User ID of the person who caused the event |
+| `actor.username` | Username of the actor |
+| `actor.role` | Role of the actor |
+| `actor.ip` | IP address of the actor |
+| `resource.type` | Type of resource involved |
+| `resource.id` | Unique ID of the resource |
+| `resource.name` | Display name of the resource |
+
+#### Event-Specific Metadata Fields
+
+Each event type provides additional metadata fields. Use dot notation to reference nested values (e.g., `{{event.metadata.catalog_name}}`). Fields ending in `.*` indicate a nested object whose sub-keys vary per instance.
+
+**Catalog Events:**
+
+| Event Type | Available Metadata Fields |
+|------------|--------------------------|
+| `catalog.requested` | `metadata.catalog_id`, `metadata.catalog_name`, `metadata.catalog_type`, `metadata.flow_id`, `metadata.credential_id`, `metadata.requestor_email`, `metadata.justification`, `metadata.catalog_metadata.*`, `metadata.cmp_catalog.name`, `metadata.cmp_catalog.catalog_type`, `metadata.cmp_catalog.tags` |
+| `catalog.approval.requested` | `metadata.catalog_id`, `metadata.catalog_name`, `metadata.requestor_email`, `metadata.justification`, `metadata.approver_emails`, `metadata.approver_user_ids` |
+| `catalog.approved` | `metadata.catalog_id`, `metadata.catalog_name`, `metadata.approved_by`, `metadata.approval_id`, `metadata.catalog_metadata.*` |
+| `catalog.rejected` | `metadata.catalog_id`, `metadata.catalog_name`, `metadata.rejected_by`, `metadata.rejection_reason`, `metadata.approval_id` |
+
+**Resource Lifecycle Events:**
+
+| Event Type | Available Metadata Fields |
+|------------|--------------------------|
+| `resource.provision.started` | `metadata.execution_id`, `metadata.catalog_id`, `metadata.catalog_name`, `metadata.provider`, `metadata.region`, `metadata.resource_type`, `metadata.cmp_execution.flow_id`, `metadata.cmp_execution.status`, `metadata.catalog_metadata.*` |
+| `resource.provision.completed` | `metadata.execution_id`, `metadata.catalog_id`, `metadata.catalog_name`, `metadata.provider`, `metadata.region`, `metadata.resource_name`, `metadata.resource_type`, `metadata.duration_ms`, `metadata.cmp_execution.flow_id`, `metadata.cmp_inventory.inventory_id`, `metadata.cmp_inventory.resource_name`, `metadata.cmp_inventory.inputs_provided.*`, `metadata.catalog_metadata.*` |
+| `resource.provision.failed` | `metadata.execution_id`, `metadata.catalog_id`, `metadata.catalog_name`, `metadata.provider`, `metadata.region`, `metadata.error`, `metadata.failed_step`, `metadata.catalog_metadata.*` |
+| `resource.created` | `metadata.provider`, `metadata.region`, `metadata.resource_type`, `metadata.resource_name`, `metadata.instance_id` |
+| `resource.started` | `metadata.action`, `metadata.provider`, `metadata.region`, `metadata.new_status`, `metadata.credential_id`, `metadata.resource_action_id`, `metadata.resource_action_name` |
+| `resource.stopped` | `metadata.action`, `metadata.provider`, `metadata.region`, `metadata.new_status`, `metadata.credential_id`, `metadata.resource_action_id`, `metadata.resource_action_name` |
+| `resource.terminated` | `metadata.action`, `metadata.provider`, `metadata.region`, `metadata.new_status`, `metadata.credential_id`, `metadata.resource_action_id`, `metadata.resource_action_name` |
+
+**Resource Action Events:**
+
+| Event Type | Available Metadata Fields |
+|------------|--------------------------|
+| `resource.action.started` | `metadata.action_id`, `metadata.action_name`, `metadata.backend_type`, `metadata.provider`, `metadata.region`, `metadata.credential_id`, `metadata.params.*` |
+| `resource.action.completed` | `metadata.action_id`, `metadata.action_name`, `metadata.backend_type`, `metadata.native_action`, `metadata.operation`, `metadata.provider`, `metadata.region`, `metadata.new_status`, `metadata.credential_id`, `metadata.params.*` |
+| `resource.action.failed` | `metadata.action_id`, `metadata.action_name`, `metadata.backend_type`, `metadata.native_action`, `metadata.operation`, `metadata.provider`, `metadata.region`, `metadata.error`, `metadata.credential_id` |
+
+**Credential Events:**
+
+| Event Type | Available Metadata Fields |
+|------------|--------------------------|
+| `credential.added` | `metadata.credential_id`, `metadata.credential_name`, `metadata.provider` |
+| `credential.validated` | `metadata.credential_id`, `metadata.credential_name`, `metadata.provider`, `metadata.validation_result` |
+| `credential.failed` | `metadata.credential_id`, `metadata.credential_name`, `metadata.provider`, `metadata.error` |
+
+**User Events:**
+
+| Event Type | Available Metadata Fields |
+|------------|--------------------------|
+| `user.created` | `metadata.cmp_user.email`, `metadata.cmp_user.first_name`, `metadata.cmp_user.last_name`, `metadata.cmp_user.roles`, `metadata.cmp_user.group_names` |
+| `user.login` | `metadata.cmp_user.email`, `metadata.cmp_user.first_name`, `metadata.cmp_user.last_name`, `metadata.cmp_user.roles`, `metadata.cmp_user.group_names`, `metadata.cmp_auth_context.ip`, `metadata.cmp_auth_context.user_agent`, `metadata.cmp_auth_context.login_at` |
+| `user.logout` | `metadata.cmp_user.email`, `metadata.cmp_user.roles`, `metadata.cmp_auth_context.ip`, `metadata.cmp_auth_context.session_duration_seconds`, `metadata.cmp_auth_context.logout_at` |
+| `user.password_changed` | `metadata.cmp_user.email`, `metadata.cmp_user.first_name`, `metadata.cmp_user.last_name` |
+
+**Approval Events:**
+
+| Event Type | Available Metadata Fields |
+|------------|--------------------------|
+| `approval.pending` | `metadata.catalog_id`, `metadata.catalog_name`, `metadata.justification`, `metadata.approver_emails`, `metadata.approver_user_ids`, `metadata.requestor_email` |
+| `approval.approved` | `metadata.catalog_id`, `metadata.catalog_name`, `metadata.approved_by`, `metadata.approval_id` |
+| `approval.rejected` | `metadata.catalog_id`, `metadata.catalog_name`, `metadata.rejected_by`, `metadata.rejection_reason`, `metadata.approval_id` |
+
+**Execution Events:**
+
+| Event Type | Available Metadata Fields |
+|------------|--------------------------|
+| `execution.started` | `metadata.execution_id`, `metadata.catalog_id`, `metadata.catalog_name`, `metadata.flow_id`, `metadata.credential_id`, `metadata.cmp_execution.status`, `metadata.catalog_metadata.*` |
+| `execution.completed` | `metadata.execution_id`, `metadata.catalog_id`, `metadata.catalog_name`, `metadata.duration_ms`, `metadata.step_count`, `metadata.total_steps`, `metadata.cmp_execution.status`, `metadata.catalog_metadata.*` |
+| `execution.failed` | `metadata.execution_id`, `metadata.catalog_id`, `metadata.catalog_name`, `metadata.error`, `metadata.failed_step`, `metadata.catalog_metadata.*` |
+
+**Cost Events:**
+
+| Event Type | Available Metadata Fields |
+|------------|--------------------------|
+| `cost.threshold.exceeded` | `metadata.threshold_amount`, `metadata.current_cost`, `metadata.budget_id`, `metadata.budget_name`, `metadata.provider`, `metadata.period` |
+| `cost.anomaly.detected` | `metadata.anomaly_type`, `metadata.expected_cost`, `metadata.actual_cost`, `metadata.provider`, `metadata.service` |
+
+**Terraform Events:**
+
+| Event Type | Available Metadata Fields |
+|------------|--------------------------|
+| `terraform.action.started` | `metadata.operation`, `metadata.provider`, `metadata.region`, `metadata.credential_id`, `metadata.resource_action_id`, `metadata.resource_action_name`, `metadata.terraform_template_id` |
+| `terraform.action.completed` | `metadata.operation`, `metadata.provider`, `metadata.region`, `metadata.workspace_id`, `metadata.resources_created`, `metadata.resources_changed`, `metadata.resources_destroyed`, `metadata.resource_action_id`, `metadata.resource_action_name` |
+| `terraform.action.failed` | `metadata.operation`, `metadata.provider`, `metadata.region`, `metadata.error`, `metadata.error_code`, `metadata.resource_action_id`, `metadata.resource_action_name` |
+
+**Workflow Events:**
+
+| Event Type | Available Metadata Fields |
+|------------|--------------------------|
+| `workflow.started` | `metadata.workflow_id`, `metadata.workflow_name` |
+| `workflow.completed` | `metadata.workflow_id`, `metadata.workflow_name`, `metadata.duration_ms` |
+| `workflow.failed` | `metadata.workflow_id`, `metadata.workflow_name`, `metadata.error` |
+
+> **Tip:** When creating templates, the UI shows a helper panel listing available placeholders for the selected event type. Fields ending in `.*` (e.g., `metadata.catalog_metadata.*`) are dynamic objects — use the specific sub-key you need (e.g., `metadata.catalog_metadata.environment`).
+
+---
+
+### 17.3 Example: "Notify Slack on Failed Provisioning" Rule
 
 **Basic Information:**
 - Name: `Notify Slack on Failed Provisioning`

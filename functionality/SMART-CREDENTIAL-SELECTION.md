@@ -416,3 +416,20 @@ Tags can be set on create (`POST /api/v1/cloud`) and updated (`PATCH /api/v1/clo
 - [Reserved Keys & Catalog Guide](../developer/RESERVED-KEYS-AND-CATALOG-GUIDE.md) — Form field conventions
 - [Feature Catalog](./FEATURE-CATALOG.md) — Licensed feature reference
 - [CMP Complete Functionality Guide](./CMP_COMPLETE_FUNCTIONALITY_GUIDE.md) — Full platform overview
+
+---
+
+## Event Automation Credential Filtering
+
+The accessible credentials endpoint (`/api/v1/cloud/accessible`) is also used by the **Event Automation** UI when configuring `call_webhook` or `call_api` actions. In this context, the credential picker filters to only show webhook-compatible provider types:
+
+| Provider Type | Shown in Event Automation |
+|---------------|:---:|
+| `bearer_token` | ✓ |
+| `basic_auth` | ✓ |
+| `github` | ✓ |
+| `aws` | ✗ |
+| `azure` | ✗ |
+| `gcp` | ✗ |
+
+This ensures users only see credentials that are meaningful for HTTP authentication when configuring webhook actions — cloud provider credentials (which use signature-based auth) are excluded from the dropdown.

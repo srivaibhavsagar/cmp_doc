@@ -308,6 +308,7 @@ CMP uses feature keys in the license to control what capabilities are available.
 - Trigger workflows automatically on events
 - View event history and triggered actions
 - Integrate with notification channels (Slack, Teams, email, webhooks)
+- Authenticate outbound HTTP calls using Bearer tokens, Basic auth, API keys, or CMP-managed credentials
 
 **Example event triggers:**
 - Resource created/deleted/modified
@@ -342,6 +343,13 @@ CMP uses feature keys in the license to control what capabilities are available.
 - Set approval requirements for dangerous actions (requires `policy_governance`)
 - Attach cost estimates to actions (requires `cost_management`)
 - View execution history for actions
+
+**Events emitted:**
+- `resource.action.started` — When a resource action execution begins
+- `resource.action.completed` — When a resource action finishes successfully
+- `resource.action.failed` — When a resource action fails
+
+These events can be used with automation rules (requires `event_automation`) to trigger notifications, webhooks, or remediation workflows on action completion or failure.
 
 **Cross-feature dependencies:**
 - Approval settings within resource actions require `policy_governance` license

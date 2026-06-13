@@ -1041,9 +1041,32 @@ Aggregated cost summaries broken down by:
 
 **API:** `/api/v1/cloud-pricing`
 
-Real-time pricing data from cloud providers used during catalog ordering to show estimated costs before submission.
+Real-time pricing data from cloud providers used during catalog ordering and resource cost estimation to show estimated costs.
 
 **Credential-Aware Lookups:** When a credential is selected in the catalog request form, the pricing lookup passes it to the backend. This applies to all providers (AWS, Azure, GCP) and enables account-specific pricing where supported.
+
+#### Resource Cost Estimation (Enriched Pricing)
+
+When viewing cost details for a provisioned resource, the platform resolves pricing inputs from multiple sources to maximize accuracy — even for Terraform-managed or cloud-synced resources where form data may be incomplete.
+
+**Input Enrichment Sources (priority order):**
+
+| Source | Description |
+|--------|-------------|
+| 1. Execution Form Data | Original provisioning form fields (maps common aliases like `instanceType` → `instance_type`) |
+| 2. Resource Cache | Cloud-synced metadata from the resource cache (populated by periodic cloud sync jobs) |
+| 3. Direct Cloud API | Live lookup from the provider (e.g., `describe_instances` for AWS EC2) as a final fallback |
+
+**Cross-Provider Normalization:**
+
+The pricing engine normalizes provider-specific sizing fields into a canonical `instance_type` key:
+- **AWS** — `instance_type` used directly (e.g., `t3.large`)
+- **Azure** — `vm_size` mapped to `instance_type` (e.g., `Standard_D2s_v3`)
+- **GCP** — `machine_type` mapped to `instance_type` (e.g., `n2-standard-4`)
+
+**Credential Resolution for Pricing API Calls:**
+
+If the resource has an associated credential, the platform decrypts and uses it for pricing lookups and cloud API fallback queries. This ensures pricing reflects account-specific discounts or reserved instance rates where supported.
 
 ---
 
@@ -1084,6 +1107,7 @@ The platform emits events for every significant operation. Events follow a stand
 | **System** | health_degraded, health_restored |
 | **Automation** | rule_triggered, rule_failed |
 | **Terraform** | action_started, action_completed, action_failed |
+| **Resource Action** | started, completed, failed |
 | **Webhook** | delivered, failed |
 
 ### 13.2 Event Automation Rules
@@ -1111,10 +1135,44 @@ Configure rules that automatically trigger actions when specific events occur.
 | `send_slack` | Post to Slack via configured webhook |
 | `send_teams` | Post to Microsoft Teams via configured webhook |
 | `trigger_workflow` | Start a CMP workflow with specified parameters |
-| `call_webhook` | Make HTTP request to external URL |
+| `call_webhook` | Make HTTP request to external URL (with optional authentication) |
 | `call_api` | Call external API with authentication |
 | `execute_task` | Run a specific CMP task |
 | `publish_event` | Emit another event (event chaining) |
+
+#### Webhook / HTTP Action Authentication
+
+The `call_webhook` and `call_api` actions support multiple authentication methods via the `auth_type` configuration key:
+
+| `auth_type` | Description | Config Keys |
+|-------------|-------------|-------------|
+| `none` (default) | No authentication header injected | — |
+| `bearer` | Bearer token — from a saved credential or a manual token | `credential_id` (preferred) **or** `auth_token` |
+| `basic` | HTTP Basic Authentication — from a saved credential or manual values | `credential_id` (preferred) **or** `auth_username` + `auth_password` |
+| `api_key` | Custom API key header | `api_key_header` (default: `X-API-Key`), `api_key_value` |
+| `credential` | Legacy: resolve auth method from a CMP credential's provider type | `credential_id` |
+
+**Smart Credential Selection**
+
+The `bearer` and `basic` auth types support an optional `credential_id`. When a saved CMP credential is provided, the system uses it to inject the appropriate Authorization header automatically:
+
+- **Bearer + credential:** Uses the credential's `secret_key` as the Bearer token.
+- **Basic + credential:** Uses the credential's `access_key` as username and `secret_key` as password.
+
+The credential picker in the Event Automation UI only displays credentials with webhook-compatible provider types: `bearer_token`, `basic_auth`, and `github`. Cloud provider credentials (AWS, Azure, GCP) are excluded since they are not applicable for HTTP webhook authentication. Credentials are fetched from the accessible credentials endpoint, which respects the user's permissions and tenant scope.
+
+If no `credential_id` is set (or the placeholder value "select" is submitted from the UI), the system falls back to the manual config keys (`auth_token` for bearer, `auth_username`/`auth_password` for basic).
+
+**Legacy `credential` auth type** resolves the auth method from the credential's provider field:
+
+| Provider | Behavior |
+|----------|----------|
+| `bearer_token` / `github` | Injects `Authorization: Bearer <secret>` |
+| `basic_auth` | Injects `Authorization: Basic <base64(access_key:secret)>` |
+
+All credentials are decrypted at runtime (Fernet encryption). If the credential is inactive or resolution fails, the HTTP call proceeds without authentication headers and a warning is logged.
+
+The `auth_token` value in bearer mode supports template interpolation (e.g., `{{metadata.token}}`), allowing dynamic token injection from event data.
 
 **Example Rules:**
 ```
@@ -1131,6 +1189,30 @@ Rule: "Budget Alert"
 Event: cost.threshold.exceeded
 Conditions: metadata.percentage >= 90
 Action: send_notification { recipients: ["finance-team"], subject: "Budget 90% reached" }
+
+Rule: "Notify on Resource Action Failure"
+Event: resource.action.failed
+Action: send_slack { body: "⚠️ Resource action '{{metadata.action_name}}' failed on {{resource.name}}" }
+
+Rule: "Call External API with Credential"
+Event: resource.provision.completed
+Action: call_webhook {
+  url: "https://cmdb.internal/api/sync",
+  method: "POST",
+  auth_type: "credential",
+  credential_id: "cred-cmdb-service-account",
+  body_template: "{ \"resource\": \"{{resource.name}}\", \"status\": \"provisioned\" }"
+}
+
+Rule: "Notify Monitoring with API Key"
+Event: cost.threshold.exceeded
+Action: call_webhook {
+  url: "https://monitoring.example.com/alerts",
+  auth_type: "api_key",
+  api_key_header: "X-Monitoring-Key",
+  api_key_value: "sk-mon-abc123",
+  body_template: "{ \"alert\": \"budget_exceeded\", \"percentage\": {{metadata.percentage}} }"
+}
 ```
 
 ### 13.3 Event Log
