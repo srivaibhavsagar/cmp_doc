@@ -154,8 +154,9 @@ Ask the customer to confirm these all return expected responses:
 curl -s https://cmp.customer.com/health | jq .
 # Expected: {"status": "healthy", ...}
 
-# 2. Version info
-curl -s https://cmp.customer.com/health/version | jq .
+# 2. Version info (requires admin auth token)
+curl -s -H "Authorization: Bearer <admin_token>" \
+  https://cmp.customer.com/health/version | jq .
 # Expected: {"version": "<version>", ...}
 
 # 3. Login works in the browser

@@ -158,7 +158,8 @@ sleep 60
 
 # 9. Verify
 curl -s http://localhost:8000/health | python3 -m json.tool
-curl -s http://localhost:8000/health/version | python3 -m json.tool
+curl -s -H "Authorization: Bearer <admin_token>" \
+  http://localhost:8000/health/version | python3 -m json.tool
 ```
 
 **Expected health response:**
@@ -311,7 +312,8 @@ cp /path/to/.env.template.hybrid /opt/cmp/.env
 After installation, confirm the health endpoint is accessible from vendor network:
 ```bash
 curl -s https://cmp.customer.com/health
-curl -s https://cmp.customer.com/health/version
+curl -s -H "Authorization: Bearer <admin_token>" \
+  https://cmp.customer.com/health/version
 ```
 
 ---
@@ -349,8 +351,38 @@ docker compose --profile local up -d
 
 - Set up DNS (e.g., `customer-name.cmp.autonimbus.com`)
 - Configure TLS certificate
-- Create initial admin user
+- Create initial admin user (see below)
 - Send login credentials to customer
+
+#### Bootstrap Initial Admin User
+
+The bootstrap-admin endpoint requires a `BOOTSTRAP_SECRET` environment variable for security.
+
+```bash
+# 1. Set the BOOTSTRAP_SECRET in .env.production (generate a secure value)
+BOOTSTRAP_SECRET=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
+echo "BOOTSTRAP_SECRET=$BOOTSTRAP_SECRET" >> /opt/cmp/.env.production
+
+# 2. Restart the backend to pick up the new env var
+docker compose restart backend
+
+# 3. Register the admin user first
+curl -X POST https://cmp.customer.com/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "email": "admin@customer.com", "password": "SecurePassword123!"}'
+
+# 4. Promote to admin using the bootstrap endpoint
+curl -X POST https://cmp.customer.com/api/v1/auth/bootstrap-admin \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "tenant_id": "default", "bootstrap_secret": "'$BOOTSTRAP_SECRET'"}'
+
+# 5. Remove BOOTSTRAP_SECRET from .env after initial setup (recommended)
+# This permanently disables the bootstrap endpoint
+sed -i '/BOOTSTRAP_SECRET/d' /opt/cmp/.env.production
+docker compose restart backend
+```
+
+> **Security note:** The bootstrap endpoint is disabled (returns 403) unless `BOOTSTRAP_SECRET` is set. After the initial admin is created, remove the secret from the environment to prevent future use.
 
 ---
 
@@ -359,8 +391,9 @@ docker compose --profile local up -d
 ### Online Upgrade (On-Premises / Hybrid / SaaS)
 
 ```bash
-# 1. Check current version
-curl -s http://localhost:8000/health/version | python3 -m json.tool
+# 1. Check current version (requires admin auth)
+curl -s -H "Authorization: Bearer <admin_token>" \
+  http://localhost:8000/health/version | python3 -m json.tool
 
 # 2. Dry run (shows what will happen, no changes)
 cd /opt/cmp
@@ -370,7 +403,8 @@ cd /opt/cmp
 ./scripts/upgrade.sh --target-version 1.1.0 --auto-rollback
 
 # 4. Verify
-curl -s http://localhost:8000/health/version | python3 -m json.tool
+curl -s -H "Authorization: Bearer <admin_token>" \
+  http://localhost:8000/health/version | python3 -m json.tool
 curl -s http://localhost:8000/health | python3 -m json.tool
 ```
 
@@ -405,7 +439,8 @@ cd /opt/cmp
 ./scripts/upgrade.sh --target-version 1.1.0 --auto-rollback
 
 # 5. Verify
-curl -s http://localhost:8000/health/version | python3 -m json.tool
+curl -s -H "Authorization: Bearer <admin_token>" \
+  http://localhost:8000/health/version | python3 -m json.tool
 ```
 
 ### Version Compatibility Rules
@@ -587,7 +622,8 @@ cp backups/<backup-id>/docker-compose.yml ./docker-compose.yml
 docker compose up -d
 
 # Verify
-curl -s http://localhost:8000/health/version | python3 -m json.tool
+curl -s -H "Authorization: Bearer <admin_token>" \
+  http://localhost:8000/health/version | python3 -m json.tool
 ```
 
 ---
@@ -597,14 +633,16 @@ curl -s http://localhost:8000/health/version | python3 -m json.tool
 ### Check System Health
 
 ```bash
-# Quick health check
+# Quick health check (public)
 curl -s http://localhost:8000/health | python3 -m json.tool
 
-# Version info
-curl -s http://localhost:8000/health/version | python3 -m json.tool
+# Version info (requires admin auth)
+curl -s -H "Authorization: Bearer <admin_token>" \
+  http://localhost:8000/health/version | python3 -m json.tool
 
-# Upgrade status
-curl -s http://localhost:8000/health/upgrade-status | python3 -m json.tool
+# Upgrade status (requires admin auth)
+curl -s -H "Authorization: Bearer <admin_token>" \
+  http://localhost:8000/health/upgrade-status | python3 -m json.tool
 
 # License status (requires auth token)
 curl -s -H "Authorization: Bearer <token>" \
@@ -758,7 +796,7 @@ git push origin v1.0.1
 | Task | Command |
 |------|---------|
 | Check health | `curl -s localhost:8000/health \| python3 -m json.tool` |
-| Check version | `curl -s localhost:8000/health/version \| python3 -m json.tool` |
+| Check version | `curl -s -H "Auth: Bearer <token>" localhost:8000/health/version \| python3 -m json.tool` |
 | Check license | `curl -s -H "Auth..." localhost:8000/api/v1/license/status` |
 | Start services | `docker compose --profile local up -d` |
 | Stop services | `docker compose down` |

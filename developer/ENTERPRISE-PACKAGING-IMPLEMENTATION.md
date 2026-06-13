@@ -46,8 +46,8 @@ This document summarizes everything implemented in the enterprise packaging and 
 | Endpoint | Auth | Purpose |
 |----------|------|---------|
 | `GET /health` | No | Aggregate health of all services |
-| `GET /health/version` | No | App version, build hash, schema version |
-| `GET /health/upgrade-status` | No | Current vs latest version, pending migrations |
+| `GET /health/version` | Yes (admin) | App version, build hash, schema version |
+| `GET /health/upgrade-status` | Yes (admin) | Current vs latest version, pending migrations |
 | `GET /api/v1/license/status` | Yes | License type, expiry, features, usage vs limits |
 
 ### Application Startup Integration

@@ -237,7 +237,7 @@ api_router.include_router(health.router, prefix="/health")
 |-------|---------|----------------|-----------------|
 | `/health` (liveness) | Is the process running? | Restart the container | Every 10s |
 | `/health/ready` (readiness) | Can it serve traffic? | Remove from load balancer | Every 10s |
-| `/health/version` | What version is running? | Informational only | On-demand |
+| `/health/version` (admin auth required) | What version is running? | Informational only | On-demand |
 
 ---
 

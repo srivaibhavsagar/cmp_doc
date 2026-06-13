@@ -378,6 +378,7 @@ curl -s https://cmp.customer.com/version | jq .
 
 # 3. Login works
 # Customer should be able to log in with initial admin credentials
+# Note: Admin bootstrap requires BOOTSTRAP_SECRET env var (see installation guide)
 
 # 4. License status is valid
 # Admin panel shows valid license with correct tier and features

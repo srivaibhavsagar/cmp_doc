@@ -270,10 +270,11 @@ watch -n 5 'curl -s http://localhost:8001/health | jq .'
 
 ### Upgrade Status Endpoint
 
-Check upgrade status programmatically:
+Check upgrade status programmatically (requires admin authentication):
 
 ```bash
-curl -s http://localhost:8001/health/upgrade-status | jq .
+curl -s -H "Authorization: Bearer <admin_token>" \
+  http://localhost:8001/health/upgrade-status | jq .
 ```
 
 ---

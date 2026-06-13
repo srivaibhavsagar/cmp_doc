@@ -203,6 +203,8 @@ When a service is unhealthy, check the detailed health results for failure type:
 
 ### Endpoint: `GET /version`
 
+> **Note:** As of v8.15.07, this endpoint requires admin authentication. Include `Authorization: Bearer <admin_token>` in requests.
+
 ```json
 {
   "version": "8.10.0",
@@ -218,6 +220,8 @@ Use this to confirm:
 - The database schema is at the expected migration version
 
 ### Endpoint: `GET /health/upgrade-status`
+
+> **Note:** As of v8.15.07, this endpoint requires admin authentication. Include `Authorization: Bearer <admin_token>` in requests.
 
 ```json
 {
