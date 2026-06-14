@@ -77,7 +77,7 @@ Full visibility and control over cloud spending across your organization.
 - **Cost Models** — Define platform charges (percentage-based or fixed fees) applied automatically to every request
 - **Budget Management** — Set monthly, quarterly, or annual budgets with configurable alert thresholds
 - **Live Cloud Pricing** — Show real-time pricing from AWS, Azure, and GCP during the ordering process
-- **Cost Analytics** — Aggregated spending views by user, team, service, and cloud provider
+- **Cost Analytics** — Aggregated spending views by user, team, service, cloud provider, and individual resource with actual cloud cost integration via automated daily snapshots
 - **Budget Alerts** — Automatic notifications via email, Slack, or Teams when spending approaches limits
 - **Cost Breakdown** — Transparent itemized view of cloud costs plus platform charges before submission
 - **Reports & Dashboards** — Visual analytics for spend trends, utilization, and optimization opportunities

@@ -2678,7 +2678,7 @@ Each toggle has:
 | 19 | webhooks | Inbound Webhooks | Admin | Configure inbound webhook endpoints |
 | 20 | event_log | Event Log | Admin | System-wide event audit log |
 | 21 | logging_monitoring | Logging & Monitoring | Admin | Platform logs and monitoring dashboards |
-| 22 | cost_analytics | Cost Analytics | Admin | Aggregated cost summaries by user, group, catalog, and provider |
+| 22 | cost_analytics | Cost Analytics | Admin | Aggregated cost summaries by user, group, catalog, provider, and individual resource |
 | 23 | live_cost_projections | Live Cost Projections | General | Real-time cost projections for active cloud resources |
 | 24 | terraform_provisioning | Terraform Provisioning | Admin/Developer | Terraform templates, workspaces, Day 2 operations, drift detection |
 
@@ -2771,7 +2771,7 @@ The Reports section provides insights into platform usage, costs, and operations
 | **Execution Summary** | Total executions by status, catalog item, and time period |
 | **Resource Inventory** | Count of resources by type, provider, status, and region |
 | **User Activity** | Login frequency, orders placed, resources owned per user |
-| **Cost Summary** | Spending by provider, credential, group, and catalog item |
+| **Cost Summary** | Spending by provider, credential, group, catalog item, and individual resource |
 | **Approval Metrics** | Average approval time, approval/rejection rates |
 | **Policy Violations** | Most triggered policies and rules |
 | **Quota Utilization** | How close users/groups are to their limits |
@@ -2783,11 +2783,14 @@ The Reports section provides insights into platform usage, costs, and operations
 The Cost Analytics dashboard provides:
 
 - **Spending by Provider** — Pie chart showing AWS vs. Azure vs. GCP spend
-- **Spending by Group** — Which teams are spending the most
+- **Spending by Group** — Which teams are spending the most. Combines CMP execution estimates with actual cloud costs from the live cost ledger, giving a comprehensive view of each group's real spend.
 - **Spending by Catalog Item** — Which services cost the most
 - **Spending by User** — Individual user cost attribution
+- **Spending by Resource** — Cost breakdown by individual resource name (e.g., "my-web-server", "prod-database-01"). Joins execution data with inventory records to resolve resource names, and includes actual cloud costs from daily cost ledger snapshots alongside CMP execution estimates. Falls back to catalog item name when no inventory mapping exists.
 - **Trend Over Time** — Line chart showing daily/weekly/monthly spend
 - **Live Cost Projections** — Estimated end-of-month spend based on current rate
+
+> **Data freshness:** Actual cloud costs are captured automatically by a daily background snapshot that runs at 03:00 UTC. Additionally, when a resource is terminated or destroyed, a final termination snapshot captures its total lifetime cost immediately — ensuring cost analytics include full spend even for resources deleted between daily snapshots. No manual action is required.
 
 ---
 

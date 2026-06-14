@@ -37,7 +37,7 @@ GET /api/v1/reports/export/{report_type}?format={csv|pdf}
 
 **Query Parameters:**
 - `format` — `csv` or `pdf` (default: `csv`)
-- `group_by` — For cost_summary: `user`, `group`, `catalog`, `cloud_provider`
+- `group_by` — For cost_summary: `user`, `group`, `catalog`, `cloud_provider`, `resource`
 - `period` — For cost_summary: `7d`, `30d`, `90d`, `all`
 - `status` — Filter by status
 - `start_date` / `end_date` — ISO date range filter

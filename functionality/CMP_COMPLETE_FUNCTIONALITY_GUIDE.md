@@ -1035,7 +1035,32 @@ Aggregated cost summaries broken down by:
 - Group
 - Catalog item
 - Cloud provider
+- Individual resource (by resource name)
 - Time period
+
+**Dual-Source Cost Aggregation:**
+
+Cost data comes from two sources, both applied at the group and resource level:
+1. **CMP execution estimates** — Estimated costs calculated during provisioning/execution
+2. **Live cost ledger** — Actual cloud costs from daily snapshots stored in the cost ledger table
+
+**Daily Cost Snapshot (Automated):**
+
+A background scheduler task runs once daily at 03:00 UTC (configurable via `COST_SNAPSHOT_RUN_HOUR_UTC`). It queries actual cloud provider costs for all active resources across all tenants and writes the results to the `cost_ledger` table. This data feeds the cost analytics aggregations above. No manual intervention is required — the snapshot runs automatically as long as the backend process is active.
+
+**Termination Snapshot (On-Delete):**
+
+When a resource is terminated, destroyed, or deleted (either manually via resource actions or automatically via lease expiry), a final cost snapshot is captured immediately. This calculates the resource's total accumulated lifetime cost from provisioning until the moment of deletion and writes it as a `termination` type entry in the cost ledger. This ensures cost analytics reflect the full spend of destroyed resources even if the daily snapshot hasn't run yet that day. The termination snapshot includes the hourly rate, total elapsed hours, and computed lifetime cost.
+
+**Group-Level Cost Aggregation:**
+
+The group summary aggregates costs per group from execution records and augments them with live cloud costs from the cost ledger. Ledger entries are matched to groups via `group_id`; items without a group assignment are rolled into the "Unassigned" category. This ensures the group breakdown reflects actual cloud spend, not just CMP estimates.
+
+**Resource-Level Cost Aggregation:**
+
+The resource summary resolves costs per individual resource by joining execution records with inventory items (via `execution_id` ↔ `request_id`). Each resource is identified by its inventory resource name, falling back to catalog item name when no inventory mapping exists.
+
+Both sources are aggregated per resource to provide a combined view of estimated and actual spending.
 
 ### 12.5 Live Cloud Pricing
 
@@ -1063,6 +1088,18 @@ The pricing engine normalizes provider-specific sizing fields into a canonical `
 - **AWS** — `instance_type` used directly (e.g., `t3.large`)
 - **Azure** — `vm_size` mapped to `instance_type` (e.g., `Standard_D2s_v3`)
 - **GCP** — `machine_type` mapped to `instance_type` (e.g., `n2-standard-4`)
+
+**Fallback Category Inference:**
+
+If the resource type is not directly recognized by the pricing engine's classification logic, the system attempts to infer the pricing category from the resource's input fields before giving up:
+
+| Inferred Category | Trigger Fields |
+|-------------------|---------------|
+| Compute | `instance_type`, `instanceType`, `vm_size`, `vmSize`, `machine_type`, `machineType` |
+| Storage | `storage_class`, `storageClass`, `bucket_name`, `bucket_id` |
+| Database | `engine`, `db_engine`, `db_instance_class` |
+
+This allows cost estimation to work for custom or unrecognized resource types (e.g., Terraform-managed resources with non-standard type names) as long as their provisioning inputs contain recognizable fields. If no category can be inferred, the system returns an "Unsupported resource_type" message.
 
 **Credential Resolution for Pricing API Calls:**
 
