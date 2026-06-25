@@ -800,6 +800,23 @@ Retry history is tracked — you can see how many times each step was attempted.
 
 ---
 
+### 5.3a Resubmitting Executions
+
+Unlike retry (which resumes from the failed step), **resubmit** creates a brand new execution using the same catalog item, workflow, credential, and form data as the original. Use this when you want a completely fresh run — for example, after fixing a credential or updating a workflow definition.
+
+1. Open the execution detail view (any status: success, failed, or cancelled)
+2. Click **Resubmit**
+3. A new execution is created and begins running immediately
+4. A new **order** is automatically created and linked to the new execution, so it appears on the Orders page
+5. Cost estimates from the original execution are preserved on the new run
+6. A full **audit log** entry is recorded (same as a fresh catalog request)
+
+The original execution remains unchanged for audit purposes. Resubmit requires **Admin** or **Developer** role.
+
+> **Note:** Resubmit now triggers the same event-driven automations (notifications, webhooks, etc.) as a fresh catalog execution. Any automation listening for `CATALOG_REQUESTED` or `RESOURCE_PROVISION_STARTED` events will fire for resubmitted executions as well.
+
+---
+
 ### 5.4 Cancelling Executions
 
 For running or pending executions:
@@ -1687,6 +1704,7 @@ Comments create a discussion thread useful for:
 **After rejection:**
 - If an "On Reject Flow" is configured, it triggers (e.g., to notify the requester's manager)
 - The requester receives a notification with the rejection reason
+- For Terraform plan approvals: rejecting the plan discards the TFC run (if using Terraform Cloud), marks the execution as **Failed**, and transitions the linked order to **Failed** status so the order page accurately reflects the outcome
 
 ---
 
@@ -1842,7 +1860,28 @@ Example thresholds:
 
 ---
 
-### 16.2 Budget Monitoring
+### 16.2 Editing a Budget
+
+Navigate to **Administration → Budgets**, find the budget in the list, and click **Edit**.
+
+All fields can be updated after creation:
+
+| Field | Description |
+|-------|-------------|
+| **Name** | Rename the budget |
+| **Amount** | Adjust the spending limit |
+| **Currency** | Change the currency code (e.g., from USD to EUR) |
+| **Period** | Switch between Monthly, Quarterly, or Annual |
+| **Cloud Provider** | Change or clear the provider filter (AWS, Azure, GCP) |
+| **Credential ID** | Reassign to a different cloud account |
+| **Group ID** | Reassign to a different team/group |
+| **Thresholds** | Add, remove, or modify alert thresholds |
+
+Changes take effect immediately. Existing threshold alerts are re-evaluated against the updated configuration on the next spend check cycle.
+
+---
+
+### 16.3 Budget Monitoring
 
 The Budgets page shows:
 - Budget name and period
@@ -1854,7 +1893,7 @@ The Budgets page shows:
 
 ---
 
-### 16.3 Example: "$10,000 Monthly AWS Budget"
+### 16.4 Example: "$10,000 Monthly AWS Budget"
 
 - Name: `AWS Production Monthly Budget`
 - Amount: `10000`
@@ -2669,7 +2708,7 @@ Each toggle has:
 | 10 | provisioning | Provisioning | Admin/Developer | Tasks, Workflows, Flows, Executions, Catalog Components, Scheduled Jobs |
 | 11 | infrastructure | Infrastructure | Admin/Developer | Cloud accounts, Resources, Resource Actions, Shared Variables |
 | 12 | event_automation | Event Automation | Admin/Developer | Configure automated event-driven workflows |
-| 13 | reports | Reports & Analytics | Admin | Platform reports and analytics dashboards |
+| 13 | reports | Reports & Analytics | Admin/Developer | Platform reports and analytics dashboards |
 | 14 | cost_models | Cost Models | Admin | Define and manage cost allocation models |
 | 15 | budgets | Budgets | Admin | Set and track spending budgets |
 | 16 | policies | Policies | Admin | Cloud governance policies |
@@ -2763,6 +2802,8 @@ Options:
 ### 26.1 Available Reports
 
 Navigate to **Administration → Reports & Analytics**.
+
+> **Access:** Admins have full access to all reports. Developers can use the **Analyze** feature (`POST /api/v1/reports/analyze`) to query and aggregate data from login logs, audit logs, and inventory. Other report management features remain admin-only.
 
 The Reports section provides insights into platform usage, costs, and operations:
 
@@ -3028,7 +3069,7 @@ When you provision a resource through the AI Assistant, the same governance rule
 | Scheduled Jobs | ✓ | ✓ | — | — |
 | Terraform Templates | ✓ | ✓ | — | — |
 | Terraform Workspaces | ✓ | ✓ | — | — |
-| Reports & Analytics | ✓ | — | — | — |
+| Reports & Analytics | ✓ | ✓ (analyze) | — | — |
 
 ---
 

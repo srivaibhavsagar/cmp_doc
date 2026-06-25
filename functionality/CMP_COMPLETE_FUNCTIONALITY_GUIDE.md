@@ -513,6 +513,7 @@ pending → running → success
 - Cost tracking (estimated and actual)
 - Dry-run mode (preview without executing)
 - Step-level retry for failed executions
+- Resubmit completed/failed/cancelled executions as a brand new execution
 - Cancel running executions
 
 **Execution Detail View:**
@@ -922,6 +923,23 @@ When a user submits any catalog request that requires approval, the system autom
 - When the approval is **rejected**, the order transitions to `Rejected` (terminal state). When the approval is **cancelled**, the order transitions to `Cancelled` (terminal state).
 
 This applies to both individual catalog requests and cart order checkouts.
+
+**Implicit Order Creation on Resubmit:**
+
+When a user resubmits a completed, failed, or cancelled execution (via `POST /executions/{id}/resubmit`), the system creates a brand new execution and also implicitly creates a new order record linked to it. The new order clones the catalog item, form data, and credential from the original execution so the resubmitted run is fully tracked on the Orders page — just like a fresh catalog request.
+
+- The new order is created with `source = "resubmit"` for auditability.
+- If implicit order creation fails (e.g., transient error), the resubmit still succeeds — the execution runs without an order link, and the failure is logged for investigation.
+- The `order_id` is attached to the new execution record for correlation.
+
+**Resubmit Parity with Trigger Execution:**
+
+Resubmit now behaves identically to a fresh catalog execution trigger:
+
+- **Cost fields preserved** — `estimated_cmp_charges`, `estimated_total_cost`, and `cost_breakdown` are carried forward from the original execution to the new one.
+- **Cloud provider derived** — The `cloud_provider` field is resolved using the same logic as trigger: first from the original execution, then from the credential, then from the catalog item.
+- **Audit log created** — A full audit log entry is recorded (requestor, group, IP address, catalog details, action type `catalog_execution`) matching the trigger execution audit trail.
+- **Events emitted** — `CATALOG_REQUESTED` and `RESOURCE_PROVISION_STARTED` events are emitted (with `source: "resubmit"` and `original_execution_id` in metadata) instead of the previous `EXECUTION_RETRIED` event, ensuring consistent event-driven automation and notification behavior.
 
 **Order Lookup by Execution:**
 
@@ -1702,6 +1720,7 @@ All authenticated routes include the tenant slug:
 | GET | `/executions/{id}` | Execution detail |
 | POST | `/executions/{id}/cancel` | Cancel execution |
 | POST | `/executions/{id}/retry` | Retry failed execution |
+| POST | `/executions/{id}/resubmit` | Resubmit as new execution (creates linked order) |
 | CRUD | `/scheduled-jobs` | Scheduled job management |
 
 ### Governance
