@@ -324,7 +324,7 @@ CMP uses feature keys in the license to control what capabilities are available.
 
 ### 11. `resource_actions` — Resource Actions
 
-**What it is:** Day-2 operations on provisioned resources — start, stop, resize, terminate, and custom actions defined by admins.
+**What it is:** Day-2 operations on provisioned resources — start, stop, resize, terminate, install agent, and custom actions defined by admins.
 
 **UI Pages:**
 - `/resource-actions` — Define and manage resource actions (admin/developer)

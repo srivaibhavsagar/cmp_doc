@@ -132,7 +132,7 @@ Reference document for all DynamoDB tables in the Cloud Management Platform and 
 | `orders` | 365 days | `ttl` | Archived after 1 year |
 | `user_login_logs` | 365 days | `ttl` | 1 year compliance retention |
 | `audit_logs` | 180 days | `ttl` | Compliance-driven retention (SOC2, ISO 27001) |
-| `inventory` | 30 days | `ttl` | Decommissioned/deleted resources only (condition: status=decommissioned,deleted) |
+| `inventory` | 30 days | `ttl` | Destroyed resources only (condition: status=destroyed) |
 | `resource_actions` | 30 days | `ttl` | Action execution logs |
 | `events` | 30 days | `ttl` | Event log grows fast; keep recent for debugging |
 | `ai_conversations` | 30 days | `ttl` | Chat history is transient |
@@ -244,7 +244,7 @@ response = table.query(
 | `crud/order.py` | orders | `create_order()` |
 | `crud/user_login_log.py` | user_login_logs | `create_login_log()` |
 | `crud/audit_log.py` | audit_logs | `create_audit_log()` |
-| `crud/inventory.py` | inventory | `update_inventory_status()` (conditional: decommissioned/deleted/destroyed) |
+| `crud/inventory.py` | inventory | `update_inventory_status()` (conditional: destroyed) |
 | `crud/resources.py` | resource_actions | `log_action()` |
 | `crud/event.py` | events | `upsert_event()` |
 | `crud/ai_conversation.py` | ai_conversations | `create_conversation()` |
@@ -256,9 +256,9 @@ response = table.query(
 
 ## Inventory Archival Strategy
 
-For `inventory` records: when a resource is decommissioned/deleted, the record gets a 30-day TTL. However, the full provisioning history (who provisioned what, when, from which catalog) should remain queryable for audits. Recommended approach:
+For `inventory` records: when a resource is destroyed, the record gets a 30-day TTL. However, the full provisioning history (who provisioned what, when, from which catalog) should remain queryable for audits. Recommended approach:
 
-- On decommission, the `audit_logs` table already captures the action (180-day retention)
+- On destroy, the `audit_logs` table already captures the action (180-day retention)
 - The `executions` table keeps the execution record (30-day retention)
 - For longer-term archival, implement a scheduled job that exports expiring records to S3 before TTL deletion
 - Records can be pulled back from S3 on demand for compliance audits

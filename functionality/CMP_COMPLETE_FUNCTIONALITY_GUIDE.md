@@ -653,6 +653,8 @@ View and manage cloud resources discovered across all connected accounts.
 
 **Native Resource Actions:**
 - Start, Stop, Restart, Terminate/Delete
+- Install Agent (VM/compute resources only — shown when status is running or available)
+- Lease / Unlease (lifecycle management)
 - Provider-specific actions based on resource type
 
 ### 9.3 Resource Actions
