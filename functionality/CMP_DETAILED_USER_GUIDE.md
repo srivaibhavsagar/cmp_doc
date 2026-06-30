@@ -1052,13 +1052,19 @@ Click any resource to view its full details:
 From the resource detail page:
 1. View the **Available Actions** section
 2. Actions are divided into:
-   - **Native Actions** — Built-in cloud operations (Start, Stop, Reboot, Terminate)
+   - **Native Actions** — Built-in cloud operations (Start, Stop, Restart, Terminate)
+   - **Lifecycle Actions** — Lease and Unlease for resource lifecycle management
+   - **Agent Actions** — Install Agent (VM/compute resources, shown when the backend resolves it as available)
    - **Automation Actions** — Custom actions defined by admins (Scale Up, Backup, Patch)
 3. Click an action button
 4. Fill in any required parameters (if the action has an input form)
 5. Select a credential (if required)
 6. Confirm and execute
 7. Track the action's progress in Executions
+
+**Terraform-Managed Resources:**
+
+For resources provisioned via Terraform, available actions combine status-based power actions (start/stop/restart) with backend-resolved actions. The backend determines which additional actions are applicable (e.g., `install_agent`, `lease`, `unlease`) based on the resource's state and configuration, and these are merged with the power actions on the detail page. This ensures Terraform-managed VMs have the same Day-2 capabilities as directly provisioned resources.
 
 ---
 
