@@ -265,13 +265,17 @@ This applies to all destructive resource actions (`terminate`, `delete`, `destro
 
 If no agent was registered for the resource, the cleanup is silently skipped.
 
+## Registration Behavior
+
+When an agent registers, it reports its own resource ID (typically obtained from the cloud provider's instance metadata service). If there is a mismatch between the token's pre-assigned `resource_id` and the agent's self-reported ID, **CMP uses the agent-reported ID as authoritative**. This ensures the agent is associated with its actual instance identity (e.g., the real EC2 instance ID from IMDS) rather than any placeholder used during token generation.
+
 ## Security
 
 | Aspect | Implementation |
 |--------|---------------|
 | Registration | One-time token, valid 1 hour, single use |
 | Ongoing auth | Scoped API key (SHA-256 hashed in DB) |
-| Scope | Agent can only report metrics for its own resource_id |
+| Scope | Agent can only report metrics for its own resource_id (as reported during registration) |
 | Transport | HTTPS only |
 | Revocation | Admin can revoke via UI or API (`POST /agent/{resource_id}/revoke`) |
 | Auto-revocation | Agent is automatically revoked when its resource is terminated/destroyed |
