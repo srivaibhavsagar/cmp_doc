@@ -304,7 +304,9 @@ When an agent registers, it reports its own resource ID (typically obtained from
 
 ## Viewing Metrics
 
-1. Navigate to any resource's detail page
+The **System Metrics** tab is only visible on VM-type resources. Supported resource types include: EC2 instances, VMs, virtual machines, compute instances, and GCE instances. Non-VM resources (e.g., S3 buckets, RDS databases, load balancers) do not display this tab.
+
+1. Navigate to a VM resource's detail page
 2. Click the **System Metrics** tab
 3. If the agent is installed and connected, you'll see:
    - Connection status (green = connected, red = disconnected)

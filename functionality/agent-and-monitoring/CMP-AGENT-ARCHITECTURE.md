@@ -128,7 +128,7 @@ ttl: 1719842100  (24 hours from now — auto-deleted by DynamoDB)
 
 ## Step 3: Frontend Display (User Opens System Metrics Tab)
 
-When a user navigates to a resource's detail page and clicks "System Metrics":
+The **System Metrics** tab is only shown for VM-type resources (EC2, VM, virtual machine, compute instance, GCE). When a user navigates to a VM resource's detail page and clicks "System Metrics":
 
 ```
   Browser (React)                              CMP Backend
