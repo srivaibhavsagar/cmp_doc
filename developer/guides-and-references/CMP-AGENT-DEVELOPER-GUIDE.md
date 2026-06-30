@@ -133,6 +133,87 @@ curl -sSL "{{ context.agent.install_url }}" | bash -s -- --token "{{ context.age
 
 ---
 
+## Pre-Built `user_data` Context Key
+
+In addition to the raw `agent` object, the task runner now provides a ready-to-use **`user_data`** key in the task execution context. This is a complete cloud-init script (string) that combines:
+
+- **SSH key injection** — any SSH keys configured for the tenant/user
+- **CMP Agent installation** — the agent install commands using the generated token
+
+### Why Use It
+
+Previously, task authors had to manually construct user_data scripts by referencing `cmp["agent"]` fields. The new `cmp["user_data"]` key provides a pre-assembled script that handles both SSH access and agent installation in a single cloud-init block — reducing boilerplate and the risk of misconfiguration.
+
+### Usage in Provisioning Tasks
+
+```python
+# Native Python task — AWS EC2 example
+user_data = cmp.get("user_data", "")
+
+# Pass directly to the cloud API
+instances = ec2.create_instances(
+    ImageId=params["ami_id"],
+    InstanceType=params["instance_type"],
+    MinCount=1, MaxCount=1,
+    UserData=user_data,  # SSH keys + agent install combined
+    # ...
+)
+```
+
+```python
+# If you need to append custom setup commands
+base_user_data = cmp.get("user_data", "#!/bin/bash\n")
+custom_commands = """
+yum install -y nginx
+systemctl enable nginx
+"""
+full_user_data = base_user_data + custom_commands
+```
+
+### Graceful Degradation
+
+If user_data generation fails (e.g., no SSH keys configured and no agent token available), the `user_data` field will be an empty string `""`. Task scripts should handle this gracefully:
+
+```python
+user_data = cmp.get("user_data", "")
+run_kwargs = { ... }
+if user_data:
+    run_kwargs["UserData"] = user_data
+```
+
+### Relationship to `agent` Key
+
+| Context Key | Type | Content |
+|-------------|------|---------|
+| `cmp["agent"]` | `dict` | Raw agent registration fields (token, endpoint, install_url, etc.) |
+| `cmp["user_data"]` | `str` | Ready-to-use cloud-init script combining SSH keys + agent install (Linux) |
+| `cmp["user_data_windows"]` | `str` | Ready-to-use PowerShell script with agent install + custom commands (Windows) |
+
+Use `cmp["user_data"]` for Linux provisioning flows and `cmp["user_data_windows"]` for Windows. Use `cmp["agent"]` when you need fine-grained control over the agent installation (e.g., custom flags or conditional logic).
+
+### Windows Provisioning
+
+For Windows instances, use the pre-built PowerShell script:
+
+```python
+# Windows VM provisioning — use the pre-built PowerShell user_data
+user_data_windows = cmp.get("user_data_windows", "")
+
+# Pass to AWS (Windows EC2)
+if user_data_windows:
+    run_kwargs["UserData"] = user_data_windows
+
+# Or append custom PowerShell commands before the closing tag
+if user_data_windows:
+    # Insert custom commands before </powershell>
+    custom_ps = "Install-WindowsFeature -Name Web-Server\n"
+    user_data_windows = user_data_windows.replace("</powershell>", f"{custom_ps}</powershell>")
+```
+
+The Windows script wraps all content in `<powershell>...</powershell>` tags as required by AWS and Azure for Windows user_data. It includes the same multi-cloud metadata resolution logic (AWS IMDSv2, Azure IMDS, GCP metadata) to automatically identify the VM's resource ID.
+
+---
+
 ## Registration Flow
 
 ```

@@ -411,6 +411,7 @@ Tasks are the atomic units of execution — individual code scripts or API calls
 **Task Features:**
 - Inline code editor with syntax highlighting
 - GitHub repository linking for version-controlled code
+- Read-only code viewer (fetches latest code from GitHub for linked tasks)
 - Input parameters with type definitions
 - Output capture for downstream consumption
 - Timeout configuration
@@ -423,6 +424,12 @@ Tasks are the atomic units of execution — individual code scripts or API calls
 4. Task is referenced in Workflows as a step
 5. At execution time, the Task Runner executes the code with injected parameters
 6. Output is captured and available to subsequent steps
+
+**Viewing Task Code:**
+- `GET /tasks/{id}/code` returns the task's source code in read-only mode
+- For **local tasks**: returns the stored inline code
+- For **GitHub-sourced tasks**: fetches the latest code from the linked repository, branch, and file path
+- Response includes `source_type`, `code`, `language`, and (for GitHub tasks) `github_repo`, `github_branch`, and `github_file_path`
 
 **Execution Modes:**
 - **Docker (primary):** Each task runs in an ephemeral container matching its language. Dependencies are installed inside the container before execution. The container is destroyed after returning results.
@@ -1715,6 +1722,7 @@ All authenticated routes include the tenant slug:
 | Method | Path | Description |
 |--------|------|-------------|
 | CRUD | `/tasks` | Task management |
+| GET | `/tasks/{id}/code` | View task source code (read-only) |
 | POST | `/tasks/{id}/run` | Execute task |
 | CRUD | `/workflows` | Workflow management |
 | CRUD | `/flows` | Flow management |

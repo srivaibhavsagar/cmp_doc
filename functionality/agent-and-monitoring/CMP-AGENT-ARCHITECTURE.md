@@ -196,6 +196,35 @@ The entire system is connected by `resource_id` (e.g., the EC2 instance ID `i-00
 
 This is how the System Metrics tab knows which metrics belong to which resource — they share the same cloud resource identifier.
 
+### How resource_id is Resolved at Provisioning Time
+
+The `resource_id` is resolved dynamically at boot time by probing cloud metadata services in priority order: AWS IMDSv2, Azure IMDS, then GCP metadata server. The first endpoint that responds provides the resource identifier for agent registration.
+
+Each cloud returns the ID format that matches how CMP stores resources internally:
+- **AWS:** instance-id (`i-xxxx`) — matches CMP resource_id
+- **Azure:** VM name — matches how CMP stores Azure VM resources
+- **GCP:** instance name — matches how CMP stores GCP instances
+
+| Cloud | Metadata Endpoint | Returns | Example resource_id |
+|-------|-------------------|---------|---------------------|
+| AWS | `http://169.254.169.254/latest/meta-data/instance-id` (IMDSv2) | Instance ID | `i-0057f4823e132b59a` |
+| Azure | `http://169.254.169.254/metadata/instance/compute/name?api-version=2021-02-01` | VM name | `my-web-server` |
+| GCP | `http://metadata.google.internal/computeMetadata/v1/instance/name` | Instance name | `prod-api-server-1` |
+
+Each probe uses a 2-second connect timeout so non-matching clouds fail fast without delaying boot.
+
+This ensures that the agent always registers with the identifier that matches the CMP resource record, creating a reliable link between the resource and its agent metrics — even if the provisioning workflow only had a human-readable name at launch time.
+
+If no metadata endpoint responds (bare-metal, air-gapped environments, or all metadata services disabled), the script falls back to the instance name provided in the workflow parameters.
+
+---
+
+## Admin Configuration (Provisioning Tab)
+
+The CMP Agent installation is **automatically included** in the cloud-init user_data for all provisioned VMs. Admins can view and configure related provisioning settings (SSH keys, custom commands) from **Admin Settings → Provisioning** tab. The agent install is always appended regardless of other settings.
+
+See [Provisioning User Data Settings](../provisioning-and-cloud/provisioning-user-data-settings.md) for full details on admin configuration.
+
 ---
 
 ## Timeline After Installation
