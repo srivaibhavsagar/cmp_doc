@@ -294,7 +294,7 @@ CMP now supports installing the monitoring agent on **Windows** instances via a 
 | OS | Windows Server 2016+ or Windows 10+ |
 | PowerShell | 5.1 or later |
 | Privileges | Must run as **Administrator** |
-| Python | Python 3.8+ (auto-installed via `winget` if not found) |
+| Python | Python 3.8+ (auto-installed from python.org if not found) |
 | Network | Outbound HTTPS access to CMP backend |
 
 #### Usage
@@ -319,33 +319,18 @@ powershell -ExecutionPolicy Bypass -Command "& {
 #### What the Installer Does
 
 1. **Verifies Administrator privileges** — exits with error if not elevated
-2. **Locates or installs Python** — checks `python`, `python3`, `py`; auto-installs Python 3.12 via `winget` if none found
-3. **Installs dependencies** — `psutil` and `requests` via pip
-4. **Deploys agent files** to `C:\ProgramData\CMP-Agent\`:
+2. **Ensures TLS 1.2** for all subsequent downloads
+3. **Locates or installs Python** — checks `python`, `python3`, `py` (validates output matches `Python \d`); if none found, downloads and silently installs Python 3.12 from python.org with `PrependPath=1`
+4. **Installs dependencies** — `psutil` and `requests` via pip (suppresses stderr to avoid false failures), then verifies packages are importable with a retry if needed
+5. **Deploys agent files** to `C:\ProgramData\CMP-Agent\`:
    - `agent.py` — the monitoring agent script
    - `config.json` — endpoint, token, resource ID, tenant ID, report interval
-5. **Creates a Windows service** using one of two methods:
-   - **NSSM** (preferred): If [NSSM](https://nssm.cc/) is installed, creates a proper Windows service with log rotation
-   - **Task Scheduler** (fallback): Registers a scheduled task running at startup as SYSTEM with automatic restart
+6. **Resolves absolute Python path for SYSTEM context** — the SYSTEM user often lacks the PATH entries available to interactive users. The installer resolves the full path to `python.exe` via `Get-Command`, and if that fails, searches common install locations (`C:\Program Files\Python312\`, `C:\Program Files\Python311\`, `C:\Program Files\Python310\`, `C:\Python312\`, `C:\Python311\`). Falls back to `C:\Program Files\Python312\python.exe` if none are found.
+7. **Registers a Scheduled Task** (`CMPAgent`) running at startup as SYSTEM with automatic restart (every 1 minute, up to 999 retries) — no third-party tools like NSSM required
+8. **Verifies task startup with fallback** — after starting the scheduled task, the installer waits 3 seconds and checks if the task entered the `Running` state. If not (e.g., task scheduler restrictions on the VM), it launches the agent directly as a hidden background process to ensure metrics collection starts immediately
 
 #### Service Management
 
-**If installed with NSSM:**
-```powershell
-# Check status
-nssm status CMPAgent
-
-# Restart
-nssm restart CMPAgent
-
-# Stop
-nssm stop CMPAgent
-
-# View logs
-Get-Content C:\ProgramData\CMP-Agent\agent.log -Tail 50
-```
-
-**If installed with Task Scheduler:**
 ```powershell
 # Check status
 Get-ScheduledTask -TaskName CMPAgent
@@ -356,6 +341,7 @@ Start-ScheduledTask -TaskName CMPAgent
 
 # Uninstall
 Unregister-ScheduledTask -TaskName CMPAgent -Confirm:$false
+Remove-Item -Recurse -Force C:\ProgramData\CMP-Agent
 ```
 
 #### Windows Provisioning Task Example (AWS EC2)
@@ -371,7 +357,7 @@ agent = cmp.get("agent", {})
 # Windows user_data uses <powershell> tags
 user_data = f"""<powershell>
 # Install CMP Agent
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'
 Invoke-WebRequest -Uri '{agent.get("install_url", "").replace("install.sh", "install.ps1")}' -OutFile C:\\Windows\\Temp\\cmp-install.ps1
 & C:\\Windows\\Temp\\cmp-install.ps1 `
   -Endpoint '{agent.get("endpoint", "")}' `
@@ -765,9 +751,9 @@ print(json.dumps({"instance_id": params["instance_name"], "resource_id": params[
 | Azure custom_data | bash cloud-init | RunPowerShellScript |
 | GCP metadata key | `startup-script` | `windows-startup-script-ps1` |
 | Agent location | `/opt/cmp-agent/` | `C:\ProgramData\CMP-Agent\` |
-| Service type | systemd | NSSM / Scheduled Task |
+| Service type | systemd | Scheduled Task (SYSTEM) |
 | Config file | `/opt/cmp-agent/config.json` | `C:\ProgramData\CMP-Agent\config.json` |
-| Log location | `journalctl -u cmp-agent` | `C:\ProgramData\CMP-Agent\agent.log` |
+| Log location | `journalctl -u cmp-agent` | Event Viewer / agent stdout |
 | Auto-install (SSM) | `AWS-RunShellScript` | `AWS-RunPowerShellScript` |
 | Auto-install (Azure) | `RunShellScript` | `RunPowerShellScript` |
 | Python requirement | Python 3.6+ | Python 3.8+ |

@@ -261,6 +261,7 @@ T+604s  : Third metrics push
 
 | Scenario | Agent Behavior | User Sees |
 |----------|---------------|-----------|
+| Python download fails (Windows) | Retries up to 3 times (10s delay, 60s timeout per attempt); aborts install if all fail | Agent never installs — check provisioning logs |
 | CMP unreachable (network) | Logs warning, retries next cycle (300s) | "Agent Disconnected" after 15 min |
 | API key revoked by admin | Agent exits with error, systemd restarts in 30s, fails again | "Agent Disconnected" |
 | VM rebooted | systemd auto-starts agent, loads state.json, resumes pushing | Brief disconnect, auto-recovers |

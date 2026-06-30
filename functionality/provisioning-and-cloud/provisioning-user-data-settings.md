@@ -358,15 +358,32 @@ Each probe uses a 2-second connect timeout to fail fast on non-matching clouds.
 
 ### Windows (PowerShell)
 
-The generated Windows user_data script (`cmp["user_data_windows"]`) performs the same multi-cloud resource ID resolution using PowerShell:
+The generated Windows user_data script (`cmp["user_data_windows"]`) performs the same multi-cloud resource ID resolution using PowerShell.
+
+**Network connectivity wait:** Before resolving cloud metadata or downloading the agent installer, the Windows script actively polls for network connectivity (up to 30 minutes, checking every 10 seconds) using Microsoft's connectivity test endpoint. This extended timeout accommodates Windows VMs in environments where network provisioning is slow (e.g., complex NSG/security group configurations, slow DHCP, or enterprise proxy setups). If the network is not available after 30 minutes, the script aborts with an error.
 
 ```powershell
 <powershell>
 # CMP Provisioning User Data (Windows)
 $ErrorActionPreference = 'Continue'
 
-# Wait for network
-Start-Sleep -Seconds 15
+# Wait for network connectivity (up to 30 minutes)
+Write-Host '[CMP Agent] Waiting for network connectivity...'
+$networkReady = $false
+for ($i = 1; $i -le 180; $i++) {
+    try {
+        $null = Invoke-WebRequest -Uri 'http://www.msftconnecttest.com/connecttest.txt' -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
+        $networkReady = $true
+        break
+    } catch {
+        Start-Sleep -Seconds 10
+    }
+}
+if (-not $networkReady) {
+    Write-Host '[CMP Agent] ERROR: Network not available after 30 minutes. Aborting.'
+    exit 1
+}
+Write-Host '[CMP Agent] Network ready.'
 
 # Resolve VM identity from cloud metadata
 $CMP_RESOURCE_ID = ''
@@ -440,6 +457,7 @@ Provisioning user data settings are **per-tenant**. Each tenant can configure th
 | SSH key not working on VM | Key format incorrect or extra whitespace | Verify key starts with `ssh-rsa`, `ssh-ed25519`, or `ecdsa-sha2-*` |
 | Custom command not executing | Syntax error in command | Test command manually on a sample VM first |
 | Agent not registering | Network/firewall blocking agent endpoint | Ensure VM can reach the CMP agent endpoint (see Agent Debug guide) |
+| Windows agent install aborted with "Network not available after 30 minutes" | VM has no outbound internet access within 30 minutes of boot | Check NSGs, route tables, NAT gateways, and proxy settings; the script polls `msftconnecttest.com` to confirm connectivity |
 | Windows admin user not created | Only username provided (no password) | Both username and password must be configured |
 | Cannot connect via WinRM | Security group blocking port 5985/5986 | Add inbound rule for WinRM ports from your management network |
 | WinRM setup failed on VM | OS is pre-Windows Server 2012 or WinRM service disabled | Ensure Windows Server 2012+ and WinRM service is not disabled by GPO |

@@ -331,6 +331,104 @@ sudo systemctl daemon-reload
 
 ---
 
+## Windows Troubleshooting
+
+### Check if the Scheduled Task is running
+
+```powershell
+Get-ScheduledTask -TaskName CMPAgent | Select-Object State
+```
+
+| State | Meaning |
+|-------|---------|
+| `Running` | Agent is active and collecting metrics |
+| `Ready` | Task registered but not currently running — may need manual start |
+| Not found | Agent was never installed |
+
+### Python download failed during installation
+
+**Symptom:** Agent install log shows:
+```
+[CMP Agent] ERROR: Failed to download Python after 3 attempts
+```
+
+**Cause:** The Windows bootstrap script downloads Python from `python.org` during first boot. If the network isn't ready yet (common on freshly provisioned VMs), the download can fail. The installer retries up to 3 times with a 10-second delay between attempts and a 60-second timeout per attempt. If all 3 attempts fail, the install aborts.
+
+**Fix:**
+1. Check network connectivity from the VM:
+   ```powershell
+   Test-NetConnection -ComputerName www.python.org -Port 443
+   ```
+2. If the network is now available, re-run the agent install script (the retry logic will handle transient issues).
+3. If the VM is behind a restricted firewall, ensure outbound HTTPS access to `python.org` is allowed, or pre-install Python before provisioning.
+
+---
+
+### Agent not starting as a Scheduled Task
+
+**Cause:** The SYSTEM user running the task cannot find `python.exe` because PATH is not inherited from the user session.
+
+**Fix:** The installer now resolves the absolute path to `python.exe` and searches common install locations. If the task still won't start:
+
+1. Verify Python is installed:
+   ```powershell
+   Test-Path 'C:\Program Files\Python312\python.exe'
+   ```
+
+2. Check the task action path:
+   ```powershell
+   (Get-ScheduledTask -TaskName CMPAgent).Actions | Select-Object Execute, Arguments
+   ```
+
+3. If the path is wrong, reinstall the agent or update the task action:
+   ```powershell
+   $pythonPath = 'C:\Program Files\Python312\python.exe'
+   $agentDir = 'C:\ProgramData\CMP-Agent'
+   $action = New-ScheduledTaskAction -Execute $pythonPath -Argument "$agentDir\agent.py" -WorkingDirectory $agentDir
+   Set-ScheduledTask -TaskName CMPAgent -Action $action
+   Start-ScheduledTask -TaskName CMPAgent
+   ```
+
+### Task registered but agent process not running
+
+**Cause:** The scheduled task may enter `Ready` state without actually launching the process (common on some Windows Server configurations with restrictive policies).
+
+**Fix:** The installer now includes a fallback that detects this and starts the agent directly. If you need to manually start:
+
+```powershell
+$pythonPath = 'C:\Program Files\Python312\python.exe'
+$agentDir = 'C:\ProgramData\CMP-Agent'
+Start-Process -WindowStyle Hidden -FilePath $pythonPath -ArgumentList "$agentDir\agent.py" -WorkingDirectory $agentDir
+```
+
+### Check agent logs (Windows)
+
+The agent writes to stdout which is captured by Task Scheduler's history:
+
+```powershell
+# View recent task history events
+Get-WinEvent -LogName 'Microsoft-Windows-TaskScheduler/Operational' -MaxEvents 20 |
+  Where-Object { $_.Message -match 'CMPAgent' } |
+  Format-Table TimeCreated, Message -Wrap
+```
+
+### Windows file locations
+
+| File | Purpose |
+|------|---------|
+| `C:\ProgramData\CMP-Agent\agent.py` | Agent Python script |
+| `C:\ProgramData\CMP-Agent\config.json` | Configuration (endpoint, token, resource_id) |
+| `C:\ProgramData\CMP-Agent\state.json` | Runtime state (created after registration) |
+
+### Uninstalling (Windows)
+
+```powershell
+Unregister-ScheduledTask -TaskName CMPAgent -Confirm:$false
+Remove-Item -Recurse -Force 'C:\ProgramData\CMP-Agent'
+```
+
+---
+
 ## File Locations
 
 | File | Purpose |
