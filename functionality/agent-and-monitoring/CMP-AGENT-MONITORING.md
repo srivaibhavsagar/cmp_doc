@@ -300,7 +300,7 @@ A connection status badge shows whether the agent is actively reporting, helping
 
 ## Provisioning Task Examples
 
-### AWS EC2 (Python Task)
+### AWS EC2 — Python Task
 
 ```python
 import json
@@ -309,17 +309,21 @@ import boto3
 # CMP injects cmp["agent"] automatically
 agent = cmp.get("agent", {})
 
-# Create EC2 with agent in user_data
+# Build user_data with agent install + instance ID resolution from metadata
 user_data = f"""#!/bin/bash
 yum update -y
 yum install -y httpd
 systemctl start httpd
 
+# Resolve instance ID from EC2 metadata (IMDSv2)
+IMDS_TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
+INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+
 # Install CMP Agent
 curl -sSL {agent.get('install_url', '')} | bash -s -- \\
   --endpoint {agent.get('endpoint', '')} \\
   --token {agent.get('token', '')} \\
-  --resource-id {{INSTANCE_ID}} \\
+  --resource-id $INSTANCE_ID \\
   --tenant-id {cmp['execution'].get('tenant_id', 'default')}
 """
 
@@ -341,6 +345,87 @@ response = ec2.run_instances(
 instance_id = response["Instances"][0]["InstanceId"]
 print(json.dumps({"instance_id": instance_id, "resource_id": instance_id}))
 ```
+
+### AWS EC2 — Terraform Template
+
+For Terraform-based provisioning, use a **two-step workflow**:
+
+**Workflow DAG:**
+```
+[generate_agent_token] → [Terraform Apply — AWS EC2]
+```
+
+**Step 1: `generate_agent_token`** (Python task):
+```python
+import json
+
+agent = cmp.get("agent", {})
+output = {
+    "cmp_agent_install_url": agent.get("install_url", ""),
+    "cmp_agent_endpoint": agent.get("endpoint", ""),
+    "cmp_agent_token": agent.get("token", ""),
+    "cmp_agent_tenant_id": cmp.get("execution", {}).get("tenant_id", "default"),
+    "status": "success",
+}
+print(json.dumps(output))
+```
+
+**Step 2: Terraform Apply** — map the step outputs as inputs in the DAG editor:
+
+| Terraform Variable | Workflow Input Value |
+|---|---|
+| `instance_name` | `{{form.instance_name}}` |
+| `ami_id` | `{{form.ami_id}}` |
+| `region` | `{{form.region}}` |
+| `subnet_id` | `{{form.subnet_id}}` |
+| `cmp_agent_install_url` | `{{steps.generate_agent_token.cmp_agent_install_url}}` |
+| `cmp_agent_endpoint` | `{{steps.generate_agent_token.cmp_agent_endpoint}}` |
+| `cmp_agent_token` | `{{steps.generate_agent_token.cmp_agent_token}}` |
+| `cmp_agent_tenant_id` | `{{steps.generate_agent_token.cmp_agent_tenant_id}}` |
+
+> **Important:** Use **underscores** in step references (e.g., `generate_agent_token` not `generate-agent-token`). CMP normalises step IDs to underscores internally.
+
+**Terraform Template** (`main.tf`):
+```hcl
+# CMP Agent variables (auto-injected via workflow step outputs)
+variable "cmp_agent_install_url" {
+  type    = string
+  default = ""
+}
+variable "cmp_agent_endpoint" {
+  type    = string
+  default = ""
+}
+variable "cmp_agent_token" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+variable "cmp_agent_tenant_id" {
+  type    = string
+  default = "default"
+}
+
+locals {
+  install_agent = var.cmp_agent_token != "" && var.cmp_agent_install_url != ""
+
+  agent_user_data = local.install_agent ? join("\n", [
+    "#!/bin/bash",
+    "sleep 10",
+    "IMDS_TOKEN=$(curl -s -X PUT \"http://169.254.169.254/latest/api/token\" -H \"X-aws-ec2-metadata-token-ttl-seconds: 60\")",
+    "INSTANCE_ID=$(curl -s -H \"X-aws-ec2-metadata-token: $IMDS_TOKEN\" http://169.254.169.254/latest/meta-data/instance-id)",
+    "curl -sSL ${var.cmp_agent_install_url} | bash -s -- --endpoint ${var.cmp_agent_endpoint} --token ${var.cmp_agent_token} --resource-id $INSTANCE_ID --tenant-id ${var.cmp_agent_tenant_id}",
+  ]) : ""
+}
+
+resource "aws_instance" "vm" {
+  # ... other config ...
+  user_data                   = local.agent_user_data != "" ? local.agent_user_data : null
+  associate_public_ip_address = true  # Required for agent to reach CMP
+}
+```
+
+> **Network requirement:** The instance must have outbound HTTPS access to CMP (public IP + IGW, or NAT Gateway).
 
 ### Azure VM (Python Task)
 
