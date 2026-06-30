@@ -160,10 +160,21 @@ This snippet is intended for use within a CMP provisioning task, where all `cmp`
 
 For VMs that are already running (not provisioned with the agent), users can install the agent directly from the **Resource Detail → Actions** section.
 
+#### Eligibility
+
+The **Install Agent** action is only shown when all of the following conditions are met:
+
+| Condition | Details |
+|-----------|---------|
+| Resource type | Must be a compute/VM type (EC2, Azure VM, GCP Compute Instance) — not shown for storage resources (S3, Blob, etc.) |
+| Status | Resource must be `running` |
+
+Both **Linux** and **Windows** instances are supported. CMP automatically detects the OS and uses the appropriate installer (`install.sh` for Linux, `install.ps1` for Windows).
+
 #### How It Works
 
 1. Navigate to a running VM's resource detail page
-2. Click the **Install Agent** button (purple button, visible only when status = `running`)
+2. Click the **Install Agent** button (purple button, visible only when the eligibility conditions above are met)
 3. CMP first attempts **automatic installation** via cloud provider APIs:
 
 | Provider | Mechanism | Requirement |
@@ -270,6 +281,126 @@ Example response (auto-install failed, fallback provided):
 }
 ```
 
+---
+
+### Windows Agent Installation
+
+CMP now supports installing the monitoring agent on **Windows** instances via a PowerShell install script served from `GET /api/v1/agent/install.ps1`.
+
+#### Requirements
+
+| Requirement | Details |
+|-------------|---------|
+| OS | Windows Server 2016+ or Windows 10+ |
+| PowerShell | 5.1 or later |
+| Privileges | Must run as **Administrator** |
+| Python | Python 3.8+ (auto-installed via `winget` if not found) |
+| Network | Outbound HTTPS access to CMP backend |
+
+#### Usage
+
+```powershell
+# Download and run the installer
+powershell -ExecutionPolicy Bypass -Command "& {
+  Invoke-WebRequest -Uri 'https://<cmp-url>/api/v1/agent/install.ps1' -OutFile install.ps1;
+  .\install.ps1 -Endpoint 'https://<cmp-url>/api/v1/agent' -Token '<registration-token>' -ResourceId '<instance-id>'
+}"
+```
+
+**Parameters:**
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `-Endpoint` | Yes | CMP agent API base URL |
+| `-Token` | Yes | One-time registration token |
+| `-ResourceId` | Yes | The resource/instance ID |
+| `-TenantId` | No | CMP tenant ID (default: `"default"`) |
+
+#### What the Installer Does
+
+1. **Verifies Administrator privileges** — exits with error if not elevated
+2. **Locates or installs Python** — checks `python`, `python3`, `py`; auto-installs Python 3.12 via `winget` if none found
+3. **Installs dependencies** — `psutil` and `requests` via pip
+4. **Deploys agent files** to `C:\ProgramData\CMP-Agent\`:
+   - `agent.py` — the monitoring agent script
+   - `config.json` — endpoint, token, resource ID, tenant ID, report interval
+5. **Creates a Windows service** using one of two methods:
+   - **NSSM** (preferred): If [NSSM](https://nssm.cc/) is installed, creates a proper Windows service with log rotation
+   - **Task Scheduler** (fallback): Registers a scheduled task running at startup as SYSTEM with automatic restart
+
+#### Service Management
+
+**If installed with NSSM:**
+```powershell
+# Check status
+nssm status CMPAgent
+
+# Restart
+nssm restart CMPAgent
+
+# Stop
+nssm stop CMPAgent
+
+# View logs
+Get-Content C:\ProgramData\CMP-Agent\agent.log -Tail 50
+```
+
+**If installed with Task Scheduler:**
+```powershell
+# Check status
+Get-ScheduledTask -TaskName CMPAgent
+
+# Restart
+Stop-ScheduledTask -TaskName CMPAgent
+Start-ScheduledTask -TaskName CMPAgent
+
+# Uninstall
+Unregister-ScheduledTask -TaskName CMPAgent -Confirm:$false
+```
+
+#### Windows Provisioning Task Example (AWS EC2)
+
+For Windows instances provisioned via CMP, embed the PowerShell installer in EC2 user data:
+
+```python
+import json
+import boto3
+
+agent = cmp.get("agent", {})
+
+# Windows user_data uses <powershell> tags
+user_data = f"""<powershell>
+# Install CMP Agent
+$ErrorActionPreference = 'Stop'
+Invoke-WebRequest -Uri '{agent.get("install_url", "").replace("install.sh", "install.ps1")}' -OutFile C:\\Windows\\Temp\\cmp-install.ps1
+& C:\\Windows\\Temp\\cmp-install.ps1 `
+  -Endpoint '{agent.get("endpoint", "")}' `
+  -Token '{agent.get("token", "")}' `
+  -ResourceId (Invoke-RestMethod -Uri 'http://169.254.169.254/latest/meta-data/instance-id' -Headers @{{"X-aws-ec2-metadata-token" = (Invoke-RestMethod -Method PUT -Uri 'http://169.254.169.254/latest/api/token' -Headers @{{"X-aws-ec2-metadata-token-ttl-seconds" = "60"}})}}) `
+  -TenantId '{cmp["execution"].get("tenant_id", "default")}'
+</powershell>
+"""
+
+ec2 = boto3.client("ec2", region_name=cmp["credential"]["region"],
+    aws_access_key_id=cmp["credential"]["aws_access_key_id"],
+    aws_secret_access_key=cmp["credential"]["aws_secret_access_key"])
+
+response = ec2.run_instances(
+    ImageId=params["ami_id"],
+    InstanceType=params.get("instance_type", "t3.medium"),
+    MinCount=1, MaxCount=1,
+    UserData=user_data,
+    TagSpecifications=[{{"ResourceType": "instance", "Tags": [
+        {{"Key": "Name", "Value": params.get("instance_name", "cmp-windows-vm")}}
+    ]}}]
+)
+
+instance_id = response["Instances"][0]["InstanceId"]
+print(json.dumps({{"instance_id": instance_id, "resource_id": instance_id}}))
+```
+
+---
+
 #### Visual Indicators
 
 - **Usage bars** change color based on severity: blue/green (normal), yellow (>75%), red (>90%)
@@ -300,13 +431,12 @@ A connection status badge shows whether the agent is actively reporting, helping
 
 ## Provisioning Task Examples
 
-### AWS EC2 — Python Task
+### AWS EC2 — Linux (Python Task)
 
 ```python
 import json
 import boto3
 
-# CMP injects cmp["agent"] automatically
 agent = cmp.get("agent", {})
 
 # Build user_data with agent install + instance ID resolution from metadata
@@ -346,7 +476,50 @@ instance_id = response["Instances"][0]["InstanceId"]
 print(json.dumps({"instance_id": instance_id, "resource_id": instance_id}))
 ```
 
-### AWS EC2 — Terraform Template
+### AWS EC2 — Windows (Python Task)
+
+```python
+import json
+import boto3
+
+agent = cmp.get("agent", {})
+
+# For Windows, use <powershell> tags in user_data
+user_data = f"""<powershell>
+# Wait for network and metadata service
+Start-Sleep -Seconds 15
+
+# Resolve instance ID from EC2 metadata (IMDSv2)
+$token = Invoke-RestMethod -Uri "http://169.254.169.254/latest/api/token" -Method PUT -Headers @{{"X-aws-ec2-metadata-token-ttl-seconds"="60"}}
+$instanceId = Invoke-RestMethod -Uri "http://169.254.169.254/latest/meta-data/instance-id" -Headers @{{"X-aws-ec2-metadata-token"=$token}}
+
+# Download and run CMP Agent installer (PowerShell)
+Invoke-WebRequest -Uri "{agent.get('endpoint', '')}/install.ps1" -OutFile C:\\Temp\\cmp-install.ps1
+C:\\Temp\\cmp-install.ps1 -Endpoint "{agent.get('endpoint', '')}" -Token "{agent.get('token', '')}" -ResourceId $instanceId -TenantId "{cmp['execution'].get('tenant_id', 'default')}"
+</powershell>
+"""
+
+ec2 = boto3.client("ec2", region_name=cmp["credential"]["region"],
+    aws_access_key_id=cmp["credential"]["aws_access_key_id"],
+    aws_secret_access_key=cmp["credential"]["aws_secret_access_key"],
+    aws_session_token=cmp["credential"]["aws_session_token"])
+
+response = ec2.run_instances(
+    ImageId=params["ami_id"],  # Use a Windows AMI (e.g., ami-0c02fb55956c7d316)
+    InstanceType=params.get("instance_type", "t3.micro"),
+    MinCount=1, MaxCount=1,
+    UserData=user_data,
+    TagSpecifications=[{"ResourceType": "instance", "Tags": [
+        {"Key": "Name", "Value": params.get("instance_name", "cmp-win-vm")},
+        {"Key": "Platform", "Value": "windows"},
+    ]}]
+)
+
+instance_id = response["Instances"][0]["InstanceId"]
+print(json.dumps({"instance_id": instance_id, "resource_id": instance_id}))
+```
+
+### AWS EC2 — Terraform Template (Linux + Windows)
 
 For Terraform-based provisioning, use a **two-step workflow**:
 
@@ -370,7 +543,7 @@ output = {
 print(json.dumps(output))
 ```
 
-**Step 2: Terraform Apply** — map the step outputs as inputs in the DAG editor:
+**Step 2: Terraform Apply** — map step outputs as inputs in the DAG editor:
 
 | Terraform Variable | Workflow Input Value |
 |---|---|
@@ -378,6 +551,7 @@ print(json.dumps(output))
 | `ami_id` | `{{form.ami_id}}` |
 | `region` | `{{form.region}}` |
 | `subnet_id` | `{{form.subnet_id}}` |
+| `is_windows` | `{{form.is_windows}}` |
 | `cmp_agent_install_url` | `{{steps.generate_agent_token.cmp_agent_install_url}}` |
 | `cmp_agent_endpoint` | `{{steps.generate_agent_token.cmp_agent_endpoint}}` |
 | `cmp_agent_token` | `{{steps.generate_agent_token.cmp_agent_token}}` |
@@ -387,35 +561,42 @@ print(json.dumps(output))
 
 **Terraform Template** (`main.tf`):
 ```hcl
+variable "is_windows" {
+  type    = bool
+  default = false
+}
+
 # CMP Agent variables (auto-injected via workflow step outputs)
-variable "cmp_agent_install_url" {
-  type    = string
-  default = ""
-}
-variable "cmp_agent_endpoint" {
-  type    = string
-  default = ""
-}
-variable "cmp_agent_token" {
-  type      = string
-  default   = ""
-  sensitive = true
-}
-variable "cmp_agent_tenant_id" {
-  type    = string
-  default = "default"
-}
+variable "cmp_agent_install_url" { type = string; default = "" }
+variable "cmp_agent_endpoint"    { type = string; default = "" }
+variable "cmp_agent_token"       { type = string; default = ""; sensitive = true }
+variable "cmp_agent_tenant_id"   { type = string; default = "default" }
 
 locals {
   install_agent = var.cmp_agent_token != "" && var.cmp_agent_install_url != ""
 
-  agent_user_data = local.install_agent ? join("\n", [
+  # Linux user_data (bash)
+  agent_user_data_linux = local.install_agent ? join("\n", [
     "#!/bin/bash",
     "sleep 10",
     "IMDS_TOKEN=$(curl -s -X PUT \"http://169.254.169.254/latest/api/token\" -H \"X-aws-ec2-metadata-token-ttl-seconds: 60\")",
     "INSTANCE_ID=$(curl -s -H \"X-aws-ec2-metadata-token: $IMDS_TOKEN\" http://169.254.169.254/latest/meta-data/instance-id)",
     "curl -sSL ${var.cmp_agent_install_url} | bash -s -- --endpoint ${var.cmp_agent_endpoint} --token ${var.cmp_agent_token} --resource-id $INSTANCE_ID --tenant-id ${var.cmp_agent_tenant_id}",
   ]) : ""
+
+  # Windows user_data (PowerShell)
+  agent_user_data_windows = local.install_agent ? join("\n", [
+    "<powershell>",
+    "Start-Sleep -Seconds 15",
+    "$token = Invoke-RestMethod -Uri 'http://169.254.169.254/latest/api/token' -Method PUT -Headers @{'X-aws-ec2-metadata-token-ttl-seconds'='60'}",
+    "$instanceId = Invoke-RestMethod -Uri 'http://169.254.169.254/latest/meta-data/instance-id' -Headers @{'X-aws-ec2-metadata-token'=$token}",
+    "Invoke-WebRequest -Uri '${var.cmp_agent_endpoint}/install.ps1' -OutFile C:\\Temp\\cmp-install.ps1",
+    "C:\\Temp\\cmp-install.ps1 -Endpoint '${var.cmp_agent_endpoint}' -Token '${var.cmp_agent_token}' -ResourceId $instanceId -TenantId '${var.cmp_agent_tenant_id}'",
+    "</powershell>",
+  ]) : ""
+
+  # Pick based on OS
+  agent_user_data = var.is_windows ? local.agent_user_data_windows : local.agent_user_data_linux
 }
 
 resource "aws_instance" "vm" {
@@ -425,9 +606,7 @@ resource "aws_instance" "vm" {
 }
 ```
 
-> **Network requirement:** The instance must have outbound HTTPS access to CMP (public IP + IGW, or NAT Gateway).
-
-### Azure VM (Python Task)
+### Azure VM — Linux (Python Task)
 
 ```python
 import json, base64
@@ -463,7 +642,47 @@ vm = poller.result()
 print(json.dumps({"instance_id": vm.vm_id, "resource_id": params["vm_name"]}))
 ```
 
-### GCP Compute Engine (Python Task)
+### Azure VM — Windows (Python Task)
+
+```python
+import json
+from azure.identity import ClientSecretCredential
+from azure.mgmt.compute import ComputeManagementClient
+
+agent = cmp.get("agent", {})
+cred = cmp["credential"]
+
+# For Windows Azure VMs, use CustomScriptExtension or pass via custom_data (PowerShell)
+install_script = f"""
+Invoke-WebRequest -Uri "{agent.get('endpoint', '')}/install.ps1" -OutFile C:\\Temp\\cmp-install.ps1
+C:\\Temp\\cmp-install.ps1 -Endpoint "{agent.get('endpoint', '')}" -Token "{agent.get('token', '')}" -ResourceId "{params['vm_name']}" -TenantId "{cmp['execution'].get('tenant_id', 'default')}"
+"""
+
+credential = ClientSecretCredential(cred["azure_tenant_id"], cred["azure_client_id"], cred["azure_client_secret"])
+compute = ComputeManagementClient(credential, cred["azure_subscription_id"])
+
+poller = compute.virtual_machines.begin_create_or_update(
+    params["resource_group"], params["vm_name"],
+    {"location": params.get("location", "eastus"),
+     "hardware_profile": {"vm_size": params.get("vm_size", "Standard_B2s")},
+     "os_profile": {"computer_name": params["vm_name"],
+                    "admin_username": "adminuser",
+                    "admin_password": params["admin_password"],
+                    "windows_configuration": {"provision_vm_agent": True}},
+     "storage_profile": {"image_reference": {"publisher": "MicrosoftWindowsServer",
+         "offer": "WindowsServer", "sku": "2022-Datacenter", "version": "latest"}}}
+)
+vm = poller.result()
+
+# Run agent install via Azure Run Command (post-creation)
+from azure.mgmt.compute.models import RunCommandInput
+run_cmd = RunCommandInput(command_id="RunPowerShellScript", script=[install_script])
+compute.virtual_machines.begin_run_command(params["resource_group"], params["vm_name"], run_cmd).result()
+
+print(json.dumps({"instance_id": vm.vm_id, "resource_id": params["vm_name"]}))
+```
+
+### GCP Compute Engine — Linux (Python Task)
 
 ```python
 import json
@@ -500,6 +719,60 @@ compute.instances().insert(project=cred["project_id"], zone=params["zone"], body
 print(json.dumps({"instance_id": params["instance_name"], "resource_id": params["instance_name"]}))
 ```
 
+### GCP Compute Engine — Windows (Python Task)
+
+```python
+import json
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+agent = cmp.get("agent", {})
+cred = cmp["credential"]
+
+# GCP Windows instances use "windows-startup-script-ps1" metadata key
+startup_script = f"""
+Start-Sleep -Seconds 15
+Invoke-WebRequest -Uri "{agent.get('endpoint', '')}/install.ps1" -OutFile C:\\Temp\\cmp-install.ps1
+C:\\Temp\\cmp-install.ps1 -Endpoint "{agent.get('endpoint', '')}" -Token "{agent.get('token', '')}" -ResourceId "{params['instance_name']}" -TenantId "{cmp['execution'].get('tenant_id', 'default')}"
+"""
+
+sa_info = json.loads(cred.get("secret_key", "{}"))
+credentials = service_account.Credentials.from_service_account_info(sa_info,
+    scopes=["https://www.googleapis.com/auth/compute"])
+compute = build("compute", "v1", credentials=credentials)
+
+config = {
+    "name": params["instance_name"],
+    "machineType": f"zones/{params['zone']}/machineTypes/{params.get('machine_type', 'e2-medium')}",
+    "disks": [{"boot": True, "autoDelete": True,
+        "initializeParams": {"sourceImage": "projects/windows-cloud/global/images/family/windows-2022"}}],
+    "networkInterfaces": [{"network": "global/networks/default", "accessConfigs": [{"type": "ONE_TO_ONE_NAT"}]}],
+    "metadata": {"items": [{"key": "windows-startup-script-ps1", "value": startup_script}]}
+}
+
+compute.instances().insert(project=cred["project_id"], zone=params["zone"], body=config).execute()
+print(json.dumps({"instance_id": params["instance_name"], "resource_id": params["instance_name"]}))
+```
+
+---
+
+## Platform Comparison
+
+| | Linux | Windows |
+|---|---|---|
+| Install script URL | `/api/v1/agent/install.sh` | `/api/v1/agent/install.ps1` |
+| user_data format | `#!/bin/bash` | `<powershell>...</powershell>` (AWS) |
+| Azure custom_data | bash cloud-init | RunPowerShellScript |
+| GCP metadata key | `startup-script` | `windows-startup-script-ps1` |
+| Agent location | `/opt/cmp-agent/` | `C:\ProgramData\CMP-Agent\` |
+| Service type | systemd | NSSM / Scheduled Task |
+| Config file | `/opt/cmp-agent/config.json` | `C:\ProgramData\CMP-Agent\config.json` |
+| Log location | `journalctl -u cmp-agent` | `C:\ProgramData\CMP-Agent\agent.log` |
+| Auto-install (SSM) | `AWS-RunShellScript` | `AWS-RunPowerShellScript` |
+| Auto-install (Azure) | `RunShellScript` | `RunPowerShellScript` |
+| Python requirement | Python 3.6+ | Python 3.8+ |
+| Metrics collected | Same (psutil is cross-platform) | Same |
+
 ---
 
 ## Task Context Reference
@@ -510,10 +783,12 @@ Every CMP provisioning task receives the `cmp["agent"]` context automatically:
 cmp["agent"] = {
     "token": "cmp-reg-...",           # One-time registration token (valid 1 hour)
     "endpoint": "https://...",         # CMP agent API base URL
-    "install_url": "https://.../install.sh",  # Install script URL
+    "install_url": "https://.../install.sh",  # Install script URL (append .ps1 for Windows)
     "resource_id": "i-...",            # Pre-filled resource ID (from form_data)
-    "report_interval": 60              # Reporting interval in seconds
+    "report_interval": 300             # Reporting interval in seconds (5 min)
 }
 ```
+
+For Windows, use `cmp["agent"]["endpoint"] + "/install.ps1"` instead of `cmp["agent"]["install_url"]` (which points to the bash script).
 
 The token is auto-generated per execution — no admin intervention needed.

@@ -165,7 +165,7 @@ Or generate a new token from CMP UI: Resource Detail → Install Agent button.
 
 #### `ModuleNotFoundError: No module named 'psutil'`
 
-**Cause:** Python dependencies not installed.
+**Cause:** Python dependencies not installed. On newer distros (Ubuntu 23.04+, Debian 12+), pip may refuse system-wide installs due to PEP 668 (externally-managed-environment).
 
 **Fix:**
 ```bash
@@ -173,13 +173,19 @@ Or generate a new token from CMP UI: Resource Detail → Install Agent button.
 sudo dnf install -y python3-pip
 sudo python3 -m pip install psutil requests
 
-# Ubuntu / Debian
+# Ubuntu 23.04+ / Debian 12+ (PEP 668 systems)
+sudo apt-get install -y python3-pip
+sudo python3 -m pip install --break-system-packages psutil requests
+
+# Older Ubuntu / Debian (< 23.04)
 sudo apt-get install -y python3-pip
 sudo python3 -m pip install psutil requests
 
 # Then restart
 sudo systemctl restart cmp-agent
 ```
+
+> **Note:** The CMP install script automatically handles PEP 668 by attempting `--break-system-packages` first, then falling back to the standard pip install for older systems.
 
 ---
 
@@ -368,8 +374,8 @@ sudo systemctl daemon-reload
 |-------------|-------|
 | Python 3.6+ | Pre-installed on Amazon Linux 2/2023, Ubuntu 20.04+ |
 | pip | May need manual install on Amazon Linux 2023: `sudo dnf install python3-pip` |
-| psutil | Installed by the install script: `pip install psutil` |
-| requests | Installed by the install script: `pip install requests` |
+| psutil | Installed by the install script: `pip install psutil` (uses `--break-system-packages` on PEP 668 systems) |
+| requests | Installed by the install script: `pip install requests` (uses `--break-system-packages` on PEP 668 systems) |
 | systemd | Required for service management (all modern Linux distros) |
 | Outbound HTTPS | VM must be able to reach the CMP backend URL on port 443 |
 | Root access | Required for installation (package install, /opt, systemd) |

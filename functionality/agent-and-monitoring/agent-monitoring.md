@@ -295,10 +295,12 @@ When an agent registers, it reports its own resource ID (typically obtained from
 
 | Method | Endpoint | Role | Description |
 |--------|----------|------|-------------|
-| GET | `/api/v1/agent/{resource_id}/metrics` | Any user | Latest metrics |
+| GET | `/api/v1/agent/{resource_id}/metrics` | Any user | Latest metrics (supports full path resource IDs) |
 | GET | `/api/v1/agent/{resource_id}/history` | Any user | Metrics history |
 | GET | `/api/v1/agent/{resource_id}/status` | Any user | Agent status |
 | POST | `/api/v1/agent/{resource_id}/revoke` | Admin | Revoke agent |
+
+> **Azure Resource Paths:** The metrics endpoint accepts full Azure resource paths (e.g., `/subscriptions/.../virtualMachines/vm-name`) as `resource_id`. If no agent is found matching the full path, CMP automatically falls back to matching just the resource name (last path segment). This means Azure VMs registered with their short name will still resolve correctly when queried via their full Azure resource ID.
 | GET | `/api/v1/agent/list` | Admin | List all agents |
 | POST | `/api/v1/agent/generate-token` | Admin/Developer | Manual token generation |
 

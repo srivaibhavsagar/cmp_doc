@@ -91,6 +91,7 @@ When a workflow task executes (e.g., VM provisioning), the task runner automatic
   "token": "reg_abc123...",
   "endpoint": "https://your-domain.com/api/v1/agent",
   "install_url": "https://your-domain.com/api/v1/agent/install.sh",
+  "install_url_windows": "https://your-domain.com/api/v1/agent/install.ps1",
   "resource_id": "res_xyz789",
   "report_interval": 60
 }
@@ -100,7 +101,8 @@ When a workflow task executes (e.g., VM provisioning), the task runner automatic
 |-------|-------------|
 | `token` | One-time registration token for the agent to authenticate during registration |
 | `endpoint` | Base URL of the CMP agent API |
-| `install_url` | URL to the agent install script (can be curled from the VM) |
+| `install_url` | URL to the Linux agent install script (bash) |
+| `install_url_windows` | URL to the Windows agent install script (PowerShell) |
 | `resource_id` | The resource identifier linked to this token |
 | `report_interval` | Recommended metrics reporting interval in seconds |
 
@@ -181,6 +183,15 @@ VM Agent                          CMP Backend
 |--------|------|------|-------------|
 | POST | `/api/v1/agent/register` | Registration token | Register agent and get API key |
 | POST | `/api/v1/agent/metrics` | Agent API key | Push metrics payload |
+
+### Install Script Endpoints (no auth — token is passed as script parameter)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/v1/agent/install.sh` | None | Serve Linux agent install script (bash) |
+| GET | `/api/v1/agent/install.ps1` | None | Serve Windows agent install script (PowerShell) |
+
+Both install endpoints accept an optional `?endpoint=<url>` query parameter to override the CMP backend URL embedded in the script.
 
 ### User-Facing (called by the frontend)
 

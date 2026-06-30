@@ -166,6 +166,8 @@ The **System Metrics** tab is only shown for VM-type resources (EC2, VM, virtual
 | `GET /agent/{resource_id}/metrics` | Latest metrics + agent status | Every 60s (auto-refresh) |
 | `GET /agent/{resource_id}/history?limit=30` | Last 30 data points for trends | Every 60s |
 
+> **Note:** The metrics endpoint uses a path converter (`{resource_id:path}`) to accept full Azure resource paths (e.g., `/subscriptions/xxx/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/my-vm`). If no agent matches the full path, it falls back to the last path segment (resource name) for lookup.
+
 ### How "Connected" status is determined:
 
 ```python
