@@ -169,12 +169,12 @@ The **System Metrics** tab is only shown for VM-type resources (EC2, VM, virtual
 ### How "Connected" status is determined:
 
 ```python
-is_connected = (now - last_seen_at) < 180 seconds  # 3 missed reports = disconnected
+is_connected = (now - last_seen_at) < 900 seconds  # 3 missed reports = disconnected
 ```
 
-- Agent pushes every 60s → `last_seen_at` updates on every push
-- If `last_seen_at` is less than 3 minutes old → **green "Agent Connected"**
-- If `last_seen_at` is older than 3 minutes → **red "Agent Disconnected"**
+- Agent pushes every 300s (5 minutes) → `last_seen_at` updates on every push
+- If `last_seen_at` is less than 15 minutes old → **green "Agent Connected"**
+- If `last_seen_at` is older than 15 minutes → **red "Agent Disconnected"**
 
 ---
 
@@ -208,9 +208,9 @@ T+3s    : Agent collects first metrics (psutil calls take ~1s for CPU)
 T+4s    : Agent calls POST /agent/metrics → 202 Accepted
 T+4s    : ✅ First data point is now in DynamoDB
 T+4s    : ✅ System Metrics tab will show data if opened now
-T+64s   : Second metrics push
-T+124s  : Third metrics push
-...continues every 60 seconds indefinitely...
+T+304s  : Second metrics push
+T+604s  : Third metrics push
+...continues every 300 seconds (5 minutes) indefinitely...
 ```
 
 **From install to visible data: ~5 seconds** (assuming CMP backend is deployed and reachable).
@@ -221,7 +221,7 @@ T+124s  : Third metrics push
 
 - Metrics are stored with a DynamoDB **TTL of 24 hours**
 - After 24 hours, DynamoDB automatically deletes old data points
-- The frontend history view shows the last 30 data points (most recent 30 minutes)
+- The frontend history view shows the last 30 data points (most recent 2.5 hours)
 - Agent registration records persist indefinitely (no TTL)
 
 ---
@@ -230,7 +230,7 @@ T+124s  : Third metrics push
 
 | Scenario | Agent Behavior | User Sees |
 |----------|---------------|-----------|
-| CMP unreachable (network) | Logs warning, retries next cycle (60s) | "Agent Disconnected" after 3 min |
+| CMP unreachable (network) | Logs warning, retries next cycle (300s) | "Agent Disconnected" after 15 min |
 | API key revoked by admin | Agent exits with error, systemd restarts in 30s, fails again | "Agent Disconnected" |
 | VM rebooted | systemd auto-starts agent, loads state.json, resumes pushing | Brief disconnect, auto-recovers |
 | VM stopped | Agent stops with VM | "Agent Disconnected" |

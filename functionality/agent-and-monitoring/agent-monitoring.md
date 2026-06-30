@@ -46,7 +46,7 @@ cmp["agent"]["token"]            # One-time registration token (valid 1 hour)
 cmp["agent"]["endpoint"]         # CMP agent API URL
 cmp["agent"]["install_url"]      # URL to the install shell script
 cmp["agent"]["resource_id"]      # Resource identifier
-cmp["agent"]["report_interval"]  # Reporting interval in seconds (60)
+cmp["agent"]["report_interval"]  # Reporting interval in seconds (300)
 ```
 
 ### AWS EC2 Provisioning Task (Python)
@@ -324,8 +324,8 @@ The **System Metrics** tab is only visible on VM-type resources. Supported resou
 |-------|----------|
 | Agent not connecting | Check `systemctl status cmp-agent`, ensure CMP URL is reachable |
 | "Invalid or expired token" | Generate a new token (tokens expire in 1 hour) |
-| Metrics not showing | Wait 60s after install, check agent logs: `journalctl -u cmp-agent` |
-| Agent shows "Disconnected" | Agent hasn't reported in 3+ minutes — check VM network/agent service |
+| Metrics not showing | Wait 300s after install, check agent logs: `journalctl -u cmp-agent` |
+| Agent shows "Disconnected" | Agent hasn't reported in 15+ minutes — check VM network/agent service |
 | Permission denied | Ensure the install script ran as root (`sudo`) |
 
 ## Requirements

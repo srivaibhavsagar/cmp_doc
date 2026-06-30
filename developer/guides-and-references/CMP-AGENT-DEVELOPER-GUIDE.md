@@ -220,10 +220,10 @@ ttl = int((datetime.utcnow() + timedelta(days=7)).timestamp())
 
 ### Agent Health Detection
 
-An agent is considered "connected" if `last_seen_at` is within `2 * report_interval_seconds` of the current time:
+An agent is considered "connected" if `last_seen_at` is within `3 * report_interval_seconds` of the current time:
 
 ```python
-is_connected = (now - last_seen_at).total_seconds() < (2 * 60)
+is_connected = (now - last_seen_at).total_seconds() < (3 * 300)
 ```
 
 ### Event Emission
