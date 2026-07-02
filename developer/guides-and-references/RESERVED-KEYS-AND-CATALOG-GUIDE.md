@@ -138,7 +138,8 @@ Orchestrator: merged_inputs = {**form_data, **step_inputs}
 TaskRunner builds cmp context:
   - cmp["credential"]["region"] = effective region (form_data override applied)
   - cmp["params"] = merged_inputs (all form values + step inputs)
-  - cmp["user_data"] = pre-built cloud-init script (SSH keys + agent install) — Linux
+  - cmp["user_data"] = pre-built cloud-init YAML (SSH keys + agent install) — AWS/Azure Linux
+  - cmp["user_data_gcp"] = pre-built bash startup-script (SSH keys + agent install) — GCP
   - cmp["user_data_windows"] = pre-built PowerShell script (agent install + custom commands) — Windows
                       ↓
 For Bash: env vars set (AWS_DEFAULT_REGION, CMP_CREDENTIAL_REGION, etc.)
@@ -167,7 +168,8 @@ params = cmp["params"]          # All form inputs
 credential = cmp["credential"]  # Credential info (region, provider, temp creds)
 user = cmp["user"]              # Who triggered this
 catalog = cmp["catalog"]        # Catalog metadata
-user_data = cmp["user_data"]    # Pre-built cloud-init script (SSH keys + agent install) — Linux
+user_data = cmp["user_data"]          # Pre-built cloud-init YAML (SSH keys + agent install) — AWS/Azure Linux
+user_data_gcp = cmp["user_data_gcp"]  # Pre-built bash startup-script (SSH keys + agent install) — GCP
 user_data_windows = cmp["user_data_windows"]  # Pre-built PowerShell script (agent install + commands) — Windows
 
 # Region is already resolved (form_data override applied)

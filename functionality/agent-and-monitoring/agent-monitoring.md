@@ -180,7 +180,7 @@ CMP now attempts **automatic agent installation** using cloud provider managemen
 |----------|-----------|
 | AWS | SSM (Systems Manager) Run Command |
 | Azure | VM Run Command (Azure Compute) |
-| GCP | Metadata startup-script / OS Config |
+| GCP | Startup-script metadata (runs on next boot) — manual install command always provided |
 
 When automatic installation succeeds:
 - The agent is installed and started on the VM without any SSH access required
@@ -209,7 +209,7 @@ Once installed (via either method), the agent automatically registers with CMP, 
 |----------|-------------|
 | AWS | SSM Agent running on the instance + IAM permissions for `ssm:SendCommand` on the linked credential |
 | Azure | VM Agent (waagent) running + `Microsoft.Compute/virtualMachines/runCommand` permission |
-| GCP | OS Config agent or Compute API access on the linked service account |
+| GCP | `compute.instances.get` and `compute.instances.setMetadata` on the linked service account (startup-script set as convenience; manual install required for immediate installation) |
 
 ## Manual Installation (Existing VMs)
 

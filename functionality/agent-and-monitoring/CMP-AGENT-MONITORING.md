@@ -181,7 +181,7 @@ Both **Linux** and **Windows** instances are supported. CMP automatically detect
 |----------|-----------|-------------|
 | AWS | SSM SendCommand (`AWS-RunShellScript`) | SSM Agent running + IAM instance profile with `AmazonSSMManagedInstanceCore` |
 | Azure | VM Run Command | Azure VM Agent running + `runCommand` permission on the service principal |
-| GCP | Metadata startup-script | `compute.instances.setMetadata` permission on the service account |
+| GCP | Startup-script metadata (next boot) + manual command | `compute.instances.get` and `compute.instances.setMetadata` on the CMP service account |
 
 4. If auto-install succeeds → success alert shown, agent starts reporting in 2-3 minutes
 5. If auto-install fails → modal appears with the manual install command for the user to copy and run via SSH
@@ -230,10 +230,24 @@ For auto-install via Azure Run Command:
 
 #### Permissions Required (GCP)
 
-For auto-install via metadata startup-script:
+GCP does not provide an equivalent of AWS SSM SendCommand or Azure Run Command for running ad-hoc scripts on live instances via a simple API call. CMP handles GCP agent installation as follows:
 
-- **On the CMP service account**: `compute.instances.setMetadata` permission (included in the `Compute Instance Admin` role)
-- **On the instance**: Must be running and reachable from the GCP metadata API (default for all GCP instances)
+**What CMP does automatically:**
+
+CMP writes the install command as the instance's `startup-script` metadata (idempotent — skipped if `/opt/cmp-agent/agent.py` already exists). This script runs automatically the next time the VM reboots.
+
+Because the startup-script only executes at boot time (not on a live VM), CMP **always** reports the GCP auto-install as not completed and surfaces the manual install command in the UI. CMP does not trigger a VM reset — a hard reboot is disruptive and unexpected.
+
+**What you need to do:**
+
+SSH into the VM and run the install command shown in the CMP dialog. This installs the agent immediately without requiring a reboot.
+
+**On the CMP service account:**
+- `compute.instances.get` — to verify the instance exists and is RUNNING
+- `compute.instances.setMetadata` — to write the startup-script (best-effort convenience)
+- Both are included in the `Compute Instance Admin (v1)` role
+
+**On the instance:** Must be in `RUNNING` state
 
 ---
 
@@ -245,6 +259,7 @@ For auto-install via metadata startup-script:
 | No IAM instance profile | Instance has no role attached — SSM Agent can't authenticate with AWS |
 | Insufficient IAM permissions | CMP credential lacks `ssm:SendCommand` permission |
 | Azure VM Agent not responding | VM Agent is unhealthy or VM is not fully booted |
+| GCP — no live remote-exec API | GCP does not support running commands on live instances via API. The install script is saved as a startup-script (runs on next reboot). Run the manual command shown in the UI to install immediately |
 | GCP metadata permission denied | Service account lacks `compute.instances.setMetadata` |
 | SDK not available | Required cloud SDK not installed on CMP backend |
 

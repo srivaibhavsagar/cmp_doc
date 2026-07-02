@@ -6,7 +6,7 @@ Configure SSH keys and custom shell commands that are automatically injected int
 
 ## Overview
 
-When CMP provisions a VM (EC2, GCE, Azure VM), it generates a `cloud-init` user_data script that runs on first boot. The Provisioning User Data settings let admins control what goes into that script:
+When CMP provisions a VM (EC2, GCE, Azure VM), it generates a startup script that runs on first boot. The format differs by cloud provider — AWS and Azure use cloud-init YAML (`#cloud-config`), while GCP uses a plain bash startup-script. The Provisioning User Data settings let admins control what goes into those scripts:
 
 | Component | Purpose | Who configures |
 |-----------|---------|----------------|
@@ -17,8 +17,12 @@ When CMP provisions a VM (EC2, GCE, Azure VM), it generates a `cloud-init` user_
 | CMP Agent Install | Monitoring agent for CPU/memory/disk/network metrics | Automatic (always included) |
 
 The final scripts are accessible in native Python tasks via:
-- `cmp["user_data"]` — Linux cloud-init script (bash/cloud-config)
+- `cmp["user_data"]` — Linux startup script, format auto-selected by provider:
+  - **AWS EC2 / Azure VMs** → `#cloud-config` YAML (cloud-init)
+  - **GCP Compute Engine VMs** → plain `#!/bin/bash` script (guest agent startup-script)
 - `cmp["user_data_windows"]` — Windows PowerShell script (wrapped in `<powershell>` tags)
+
+> **Note:** There is no longer a separate `cmp["user_data_gcp"]` key. Task authors always use `cmp["user_data"]` regardless of cloud provider — CMP selects the correct format automatically based on the credential's provider.
 
 ---
 
@@ -195,7 +199,10 @@ PowerShell commands that run on Windows VM first boot, after the CMP Agent is in
 
 ## Generated cloud-init Preview
 
-The top of the Provisioning tab shows a **read-only preview** of the generated `cloud-init` script. This is exactly what `cmp["user_data"]` will contain at execution time (with placeholder values for per-execution tokens).
+The top of the Provisioning tab shows a **read-only preview** of the generated scripts. This is exactly what the context keys will contain at execution time (with placeholder values for per-execution tokens).
+
+- `cmp["user_data"]` — cloud-init YAML for AWS/Azure Linux VMs
+- `cmp["user_data_gcp"]` — plain bash startup-script for GCP Compute Engine VMs
 
 The preview shows the execution order:
 
@@ -214,47 +221,60 @@ When a VM provisioning workflow executes:
 Admin Settings (SSH keys + Windows admin user + commands)
          │
          ▼
-┌─────────────────────────────────────────────────┐
-│  Execution Engine builds user_data               │
-│  1. Reads tenant provisioning settings           │
-│  2. Generates one-time agent registration token  │
-│  3. Linux: SSH keys + agent install + commands   │
-│  4. Windows: admin user + WinRM + agent + cmds   │
-│  5. Sets cmp["user_data"] / cmp["user_data_windows"] │
-└──────────────────────┬──────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│  Execution Engine builds user_data scripts           │
+│  1. Reads tenant provisioning settings               │
+│  2. Generates one-time agent registration token      │
+│  3. Linux AWS/Azure: _build_user_data(provider="")   │
+│        → cloud-init YAML → cmp["user_data"]          │
+│  4. Linux GCP: _build_user_data(provider="gcp")      │
+│        → plain bash script → cmp["user_data_gcp"]   │
+│  5. Windows: admin user + WinRM + agent + cmds       │
+│        → PowerShell → cmp["user_data_windows"]      │
+└──────────────────────┬──────────────────────────────┘
                        │
                        ▼
-┌─────────────────────────────────────────────────┐
-│  Native Task (e.g. aws_ec2_provision.py)         │
-│  - Reads cmp["user_data"] or cmp["user_data_windows"] │
-│  - Passes as UserData / startup-script to cloud  │
-│  - VM boots, cloud-init runs the script          │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│  Native Task (e.g. aws_ec2_provision.py)             │
+│  - Reads cmp["user_data"], cmp["user_data_gcp"],     │
+│    or cmp["user_data_windows"]                       │
+│  - Passes as UserData / startup-script to cloud      │
+│  - VM boots, script runs on first boot               │
+└─────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Using in Native Python Tasks
 
-### Linux VMs
+### Linux VMs (AWS / Azure)
 
-The pre-built user_data is available in the execution context:
+The pre-built cloud-init script is available for AWS and Azure:
 
 ```python
-# Preferred: use the pre-built user_data (includes SSH keys + agent + commands)
+# AWS EC2 / Azure (cloud-init YAML)
 user_data = cmp["user_data"]
 
 # Pass to AWS
 run_kwargs["UserData"] = user_data
 
-# Pass to GCP
-instance_body["metadata"]["items"].append({
-    "key": "startup-script",
-    "value": user_data
-})
-
 # Pass to Azure
 vm_params["os_profile"]["custom_data"] = base64.b64encode(user_data.encode()).decode()
+```
+
+### GCP VMs (Linux)
+
+GCP runs `startup-script` metadata as a plain shell script, not cloud-init YAML. Use `cmp["user_data_gcp"]`:
+
+```python
+# GCP Compute Engine — use user_data_gcp, NOT user_data
+user_data_gcp = cmp.get("user_data_gcp", "")
+if user_data_gcp:
+    instance_body["metadata"]["items"].append({
+        "key": "startup-script",
+        "value": user_data_gcp   # plain bash #!/bin/bash script
+    })
+# Do NOT pass cmp["user_data"] here — it is cloud-init YAML and will not execute correctly on GCP
 ```
 
 ### Windows VMs
@@ -299,13 +319,18 @@ The CMP monitoring agent installation is **always** included in both the Linux a
 - Agent registration with a one-time token (generated per execution)
 - Automatic association with the provisioned resource using the real cloud instance ID
 
-### Dynamic Resource ID Resolution (Multi-Cloud)
+### Dynamic Resource ID Resolution
 
-The agent install command automatically resolves the VM's resource identifier from the cloud provider's metadata service at boot time. CMP supports AWS, Azure, and GCP metadata endpoints, trying each in sequence until one responds. Each cloud returns the identifier format that matches how CMP stores resources internally, ensuring seamless correlation between cloud resources and agent metrics.
+The agent install command resolves the VM's resource identifier from the cloud provider's metadata service at boot time. The resolution logic differs by script type:
 
-### Linux (cloud-init)
+- **AWS/Azure cloud-init**: probes AWS and Azure metadata endpoints in sequence
+- **GCP startup-script**: probes only the GCP metadata endpoint directly
 
-The generated cloud-init script includes:
+This separation ensures each script targets only the relevant metadata service with no ambiguity, and each returns the identifier format that matches how CMP stores resources internally.
+
+### Linux — AWS / Azure (cloud-init)
+
+The generated cloud-init script probes AWS and Azure metadata:
 
 ```bash
 # Wait for network to be fully available
@@ -326,12 +351,6 @@ if [ -z "$CMP_RESOURCE_ID" ]; then
     "http://169.254.169.254/metadata/instance/compute/name?api-version=2021-02-01&format=text" 2>/dev/null)
 fi
 
-# Try GCP metadata (use instance name — matches CMP resource naming)
-if [ -z "$CMP_RESOURCE_ID" ]; then
-  CMP_RESOURCE_ID=$(curl -s --connect-timeout 2 -H "Metadata-Flavor: Google" \
-    "http://metadata.google.internal/computeMetadata/v1/instance/name" 2>/dev/null)
-fi
-
 # Fallback to placeholder
 if [ -z "$CMP_RESOURCE_ID" ]; then CMP_RESOURCE_ID="<fallback-name>"; fi
 
@@ -342,19 +361,42 @@ curl -sSL <install_url> | bash -s -- \
   --tenant-id <tenant_id>
 ```
 
-#### Cloud Provider Detection Order
+#### Cloud Provider Detection Order — AWS / Azure cloud-init
 
 | Priority | Cloud | Metadata Endpoint | Returns | Example |
 |----------|-------|-------------------|---------|---------|
 | 1 | AWS | `http://169.254.169.254/latest/meta-data/instance-id` (IMDSv2) | Instance ID | `i-0057f4823e132b59a` |
 | 2 | Azure | `http://169.254.169.254/metadata/instance/compute/name?api-version=2021-02-01` | VM name | `my-web-server` |
-| 3 | GCP | `http://metadata.google.internal/computeMetadata/v1/instance/name` | Instance name | `prod-api-server-1` |
 
 Each probe uses a 2-second connect timeout to fail fast on non-matching clouds.
 
-**Why VM name instead of VM ID?** CMP stores Azure and GCP resources by their human-readable name (the VM name or instance name) rather than internal GUIDs or numeric IDs. Using the name from metadata ensures the agent's `resource_id` matches the CMP resource record exactly, enabling automatic correlation on the System Metrics tab.
+**Fallback behavior:** If neither metadata endpoint responds, the resource ID falls back to the instance name provided in the workflow parameters.
 
-**Fallback behavior:** If no cloud metadata endpoint responds (e.g., bare-metal, air-gapped environments, or all metadata services disabled), the resource ID falls back to the instance name provided in the workflow parameters.
+### Linux — GCP (startup-script)
+
+GCP VMs use a separate plain bash startup-script (injected via `cmp["user_data_gcp"]`). This script probes only the GCP metadata endpoint:
+
+```bash
+#!/bin/bash
+# CMP startup-script — auto-generated by CMP
+
+# Install CMP Agent
+sleep 10
+CMP_RESOURCE_ID=''
+# GCP: use instance name from metadata — matches how CMP stores GCP resources
+CMP_RESOURCE_ID=$(curl -s --connect-timeout 5 --retry 3 -H "Metadata-Flavor: Google" \
+  "http://metadata.google.internal/computeMetadata/v1/instance/name" 2>/dev/null || true)
+if [ -z "$CMP_RESOURCE_ID" ]; then CMP_RESOURCE_ID="<fallback-name>"; fi
+curl -sSL "<install_url>" | bash -s -- \
+  --endpoint "<cmp_endpoint>" \
+  --token "<registration_token>" \
+  --resource-id "$CMP_RESOURCE_ID" \
+  --tenant-id "<tenant_id>"
+```
+
+GCP's guest agent executes `startup-script` metadata as a plain shell script on every boot. Cloud-init YAML (`#cloud-config`) is silently ignored by GCP's guest agent, which is why GCP uses its own dedicated bash script format.
+
+**Why VM name instead of VM ID?** CMP stores Azure and GCP resources by their human-readable name (the VM name or instance name) rather than internal GUIDs or numeric IDs. Using the name from metadata ensures the agent's `resource_id` matches the CMP resource record exactly, enabling automatic correlation on the System Metrics tab.
 
 ### Windows (PowerShell)
 

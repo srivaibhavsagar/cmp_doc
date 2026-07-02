@@ -133,63 +133,80 @@ curl -sSL "{{ context.agent.install_url }}" | bash -s -- --token "{{ context.age
 
 ---
 
-## Pre-Built `user_data` Context Key
+## Pre-Built `user_data` Context Keys
 
-In addition to the raw `agent` object, the task runner now provides a ready-to-use **`user_data`** key in the task execution context. This is a complete cloud-init script (string) that combines:
+In addition to the raw `agent` object, the task runner provides three ready-to-use startup script keys in the task execution context. Each combines SSH key injection and CMP Agent installation in the format required by its target cloud:
 
-- **SSH key injection** — any SSH keys configured for the tenant/user
-- **CMP Agent installation** — the agent install commands using the generated token
+| Key | Format | Use For |
+|-----|--------|---------|
+| `cmp["user_data"]` | Cloud-init YAML | AWS EC2, Azure VMs (Linux) |
+| `cmp["user_data_gcp"]` | Plain bash (`#!/bin/bash`) | GCP Compute Engine VMs |
+| `cmp["user_data_windows"]` | PowerShell (`<powershell>`) | Windows VMs (all clouds) |
 
-### Why Use It
+### Why Separate Keys for GCP?
 
-Previously, task authors had to manually construct user_data scripts by referencing `cmp["agent"]` fields. The new `cmp["user_data"]` key provides a pre-assembled script that handles both SSH access and agent installation in a single cloud-init block — reducing boilerplate and the risk of misconfiguration.
+GCP's guest agent executes the `startup-script` metadata key as a **plain shell script**, not as cloud-init YAML. Passing a cloud-init document to GCP results in the YAML being treated as literal shell commands, which fails. `cmp["user_data_gcp"]` provides a `#!/bin/bash` script with the same SSH + agent payload in the format GCP expects.
+
+### Why Use Pre-Built Keys
+
+Previously, task authors had to manually construct startup scripts by referencing `cmp["agent"]` fields. The pre-built keys handle both SSH access and agent installation in a single string — reducing boilerplate and the risk of misconfiguration.
 
 ### Usage in Provisioning Tasks
 
 ```python
-# Native Python task — AWS EC2 example
+# AWS EC2 (Linux) — cloud-init YAML
 user_data = cmp.get("user_data", "")
-
-# Pass directly to the cloud API
 instances = ec2.create_instances(
     ImageId=params["ami_id"],
     InstanceType=params["instance_type"],
     MinCount=1, MaxCount=1,
     UserData=user_data,  # SSH keys + agent install combined
-    # ...
 )
 ```
 
 ```python
-# If you need to append custom setup commands
-base_user_data = cmp.get("user_data", "#!/bin/bash\n")
-custom_commands = """
-yum install -y nginx
-systemctl enable nginx
-"""
-full_user_data = base_user_data + custom_commands
+# GCP Compute Engine — plain bash startup-script
+user_data_gcp = cmp.get("user_data_gcp", "")
+if user_data_gcp:
+    metadata_items.append({"key": "startup-script", "value": user_data_gcp})
+# Do NOT use cmp["user_data"] here — GCP does not process cloud-init YAML
+```
+
+```python
+# Azure VM (Linux) — cloud-init YAML
+user_data = cmp.get("user_data", "")
+if user_data:
+    import base64
+    vm_params["os_profile"]["custom_data"] = base64.b64encode(user_data.encode()).decode()
+```
+
+```python
+# Appending custom commands (Linux / GCP)
+base = cmp.get("user_data_gcp", "#!/bin/bash\n")  # use user_data for AWS/Azure
+custom = "\napt-get install -y nginx\nsystemctl enable nginx\n"
+full_script = base + custom
 ```
 
 ### Graceful Degradation
 
-If user_data generation fails (e.g., no SSH keys configured and no agent token available), the `user_data` field will be an empty string `""`. Task scripts should handle this gracefully:
+If script generation fails (e.g., no SSH keys and no agent token), the key will be an empty string `""`. Handle this gracefully:
 
 ```python
-user_data = cmp.get("user_data", "")
-run_kwargs = { ... }
-if user_data:
-    run_kwargs["UserData"] = user_data
+user_data_gcp = cmp.get("user_data_gcp", "")
+if user_data_gcp:
+    metadata_items.append({"key": "startup-script", "value": user_data_gcp})
 ```
 
 ### Relationship to `agent` Key
 
-| Context Key | Type | Content |
-|-------------|------|---------|
-| `cmp["agent"]` | `dict` | Raw agent registration fields (token, endpoint, install_url, etc.) |
-| `cmp["user_data"]` | `str` | Ready-to-use cloud-init script combining SSH keys + agent install (Linux) |
-| `cmp["user_data_windows"]` | `str` | Ready-to-use PowerShell script with agent install + custom commands (Windows) |
+| Context Key | Type | Content | Use For |
+|-------------|------|---------|---------|
+| `cmp["agent"]` | `dict` | Raw agent registration fields (token, endpoint, install_url, etc.) | Fine-grained control over agent install |
+| `cmp["user_data"]` | `str` | Cloud-init YAML combining SSH keys + agent install | AWS EC2, Azure VMs (Linux) |
+| `cmp["user_data_gcp"]` | `str` | Plain bash startup-script combining SSH keys + agent install | GCP Compute Engine VMs |
+| `cmp["user_data_windows"]` | `str` | PowerShell script with agent install + custom commands | Windows VMs (all clouds) |
 
-Use `cmp["user_data"]` for Linux provisioning flows and `cmp["user_data_windows"]` for Windows. Use `cmp["agent"]` when you need fine-grained control over the agent installation (e.g., custom flags or conditional logic).
+Use `cmp["user_data"]` for AWS and Azure Linux VMs, `cmp["user_data_gcp"]` for GCP VMs, and `cmp["user_data_windows"]` for Windows. The GCP key exists because GCP's guest agent runs `startup-script` metadata as a plain shell script — it does not process cloud-init YAML. Use `cmp["agent"]` when you need fine-grained control over the agent installation (e.g., custom flags or conditional logic).
 
 ### Windows Provisioning
 
