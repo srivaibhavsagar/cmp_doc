@@ -146,6 +146,7 @@ If both filters are empty, the hook fires for all resources on the matching oper
 
 - Hooks are **advisory** — they do not block or gate the main action. If a pre-hook fails, the resource action still proceeds.
 - Hook flows execute **synchronously** — the system awaits each hook's completion before continuing. This enables capturing execution results and tracking them alongside the parent action.
+- **Timeout:** Each hook phase (pre or post) has a **30-second execution timeout**. If hooks do not complete within 30 seconds, execution is cancelled and a timeout error step_log entry is recorded. This prevents hanging hooks from blocking resource operations indefinitely.
 - Each hook execution creates a tracked execution record visible in the Executions list (catalog: `lifecycle-hook:{hook_id}`).
 - Hook results are returned as **step_log entries** that can be appended to the parent execution's `step_logs` for unified tracking and visibility.
 - If the hook infrastructure itself is unavailable, operations continue without hooks (returns empty step_logs).
@@ -167,9 +168,30 @@ Each hook execution produces a step_log entry with this structure:
     "flow_id": "flow-xyz-456",
     "flow_name": "My Notification Flow",
     "execution_id": "exec-789",
-    "description": "Notify Slack before stopping"
+    "description": "Notify Slack before stopping",
+    "context": {
+      "resource_id": "res-001",
+      "resource_name": "my-server",
+      "provider": "aws",
+      "operation": "stop",
+      "actor": "user@example.com"
+    }
   },
   "error": null
+}
+```
+
+The `context` field contains the full `form_data` that triggered the hook, including resource details, provider, operation, and actor information. This is useful for debugging hook behavior and for audit trail purposes.
+
+If a hook phase times out (exceeds 30 seconds), a timeout entry is recorded:
+
+```json
+{
+  "step_id": "pre_hook_timeout",
+  "step_name": "PRE Hooks (timed out)",
+  "section": "pre_hooks",
+  "status": "failed",
+  "error": "Hook execution timed out after 30s"
 }
 ```
 
@@ -226,6 +248,7 @@ To add lifecycle hook support to a new resource action in the backend:
 
 ```python
 from app.services.lifecycle_hooks import run_pre_hooks, run_post_hooks, build_hook_context
+import asyncio
 
 # Build context
 context = build_hook_context(
@@ -238,8 +261,14 @@ context = build_hook_context(
     tenant_id=tenant_id,
 )
 
-# Run pre-hooks — returns step_log entries
-pre_logs = await run_pre_hooks("my_operation", context, tenant_id)
+# Run pre-hooks with 30s timeout — returns step_log entries
+try:
+    pre_logs = await asyncio.wait_for(
+        run_pre_hooks("my_operation", context, tenant_id),
+        timeout=30.0
+    )
+except asyncio.TimeoutError:
+    pre_logs = [{"step_id": "pre_hook_timeout", "step_name": "PRE Hooks (timed out)", "section": "pre_hooks", "status": "failed", "error": "Hook execution timed out after 30s"}]
 
 # ... perform the main action ...
 
@@ -248,8 +277,14 @@ context.phase = "post"
 context.action_success = True
 context.action_result = {"instance_id": "i-abc123"}
 
-# Run post-hooks — returns step_log entries
-post_logs = await run_post_hooks("my_operation", context, tenant_id)
+# Run post-hooks with 30s timeout — returns step_log entries
+try:
+    post_logs = await asyncio.wait_for(
+        run_post_hooks("my_operation", context, tenant_id),
+        timeout=30.0
+    )
+except asyncio.TimeoutError:
+    post_logs = [{"step_id": "post_hook_timeout", "step_name": "POST Hooks (timed out)", "section": "post_hooks", "status": "failed", "error": "Hook execution timed out after 30s"}]
 
 # Append hook logs to the parent execution's step_logs for unified tracking
 all_step_logs = pre_logs + action_step_logs + post_logs
