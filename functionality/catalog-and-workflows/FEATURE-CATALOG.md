@@ -342,6 +342,7 @@ CMP uses feature keys in the license to control what capabilities are available.
 - Execute day-2 operations on provisioned resources
 - Set approval requirements for dangerous actions (requires `policy_governance`)
 - Attach cost estimates to actions (requires `cost_management`)
+- Attach pre/post automation flows to any action (runs before/after the main operation with full action context)
 - View execution history for actions
 
 **Events emitted:**

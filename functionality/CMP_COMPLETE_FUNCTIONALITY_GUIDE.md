@@ -685,6 +685,10 @@ Define custom Day 2 operations that users can perform on provisioned resources.
 - **Visibility** — Role-based visibility control
 - **Cost Estimate** — Show estimated cost before execution
 - **Status Message** — Warning/info banner shown to users
+- **Pre-Flow** — Optional flow executed before the main action (e.g., create snapshot, validate preconditions)
+- **Post-Flow** — Optional flow executed after the main action (e.g., send notifications, run cleanup)
+
+Pre/post flows receive the full action context (resource details, operation, provider, user inputs, and for post-flows the action result) as `form_data`, enabling tasks within the flow to reference action data.
 
 **Terraform-Backed Actions:**
 - Link to a Terraform template
@@ -800,6 +804,12 @@ Post-deployment operations on active workspaces:
 | `resource_removal` | Remove specific resources |
 | `stack_destruction` | Destroy the entire workspace |
 
+**Variable Update UI:**
+
+The variable update form uses type-aware editors:
+- **Scalar variables** (string, number, bool): Standard text input with current value displayed.
+- **Map variables** (map, map(string), tags): Interactive key-value table with inline editing, add/remove row controls. Ideal for managing cloud resource tags visually.
+
 ### 10.4 Drift Detection
 
 Automated detection of configuration drift between desired state and actual infrastructure.
@@ -809,6 +819,45 @@ Automated detection of configuration drift between desired state and actual infr
 - Drift status tracking per workspace (`unknown`, `in_sync`, `drifted`)
 - Accept drift (update desired state) or remediate (re-apply)
 - Last drift check timestamp
+- Alert supersession — only the latest drift alert per workspace is actionable
+- Granular resource change breakdown — additions, changes, and destructions counted separately
+
+**Drift Alert Details:**
+
+Each drift alert includes a breakdown of affected resources by change type:
+
+| Field | Description |
+|-------|-------------|
+| `affected_resources` | List of individual resources with address, change type, and attribute diffs |
+| `resource_additions` | Count of resources that exist in cloud but not in state (new/unmanaged) |
+| `resource_changes` | Count of resources whose attributes differ from desired state |
+| `resource_destructions` | Count of resources in state that no longer exist in cloud |
+
+This breakdown appears in both the drift alert (stored history) and the drift check result (real-time response), giving users immediate visibility into the severity and nature of drift without inspecting individual resources.
+
+**Alert Supersession:**
+When a new drift detection run creates a drift alert for a workspace, any existing unresolved alerts for that workspace are automatically marked as `superseded`. This ensures users always see a single actionable alert reflecting the latest drift state rather than accumulating stale alerts over time. Superseded alerts remain in history for audit purposes but no longer appear as needing action.
+
+**Accept Drift Behavior:**
+
+The accept-drift process differs by backend type:
+
+- **Terraform Cloud (TFC) Backend:** CMP calls the TFC API to lock the workspace and update the state version directly, then unlocks. No local Terraform execution is needed.
+
+- **CMP-Managed / S3 Backend:** CMP uses a two-step approach:
+  1. **Update workspace variables** — Drifted attribute values are merged into the workspace's `variable_values` so that the Terraform configuration matches the current cloud state. CMP handles two categories of drift:
+     - **Simple attributes** (e.g., `instance_type`, `ami`): The new value replaces the existing variable value. CMP applies an attribute-to-variable name mapping to translate Terraform state attribute names to their corresponding workspace variable names (e.g., `ami` → `ami_id`, `root_block_device.volume_size` → `root_volume_size_gb`, `associate_public_ip_address` → `assign_public_ip`). If no mapping exists, the attribute name is used directly. Only variables already present in the workspace are updated — no new variables are created.
+     - **Tags** (`tags` / `tags_all`): Added or changed tags are parsed from the drift diff and merged into the existing `tags` variable map. CMP-managed tags (`ManagedBy`, `Name`) are excluded from the merge. This ensures manually-added cloud tags are adopted into the Terraform configuration without overwriting existing tag definitions.
+  2. **Run `terraform apply`** — With the updated variables, Terraform sees no diff between config and cloud, resulting in a no-op apply that updates the state file to reflect reality.
+
+  This approach is used instead of `apply -refresh-only` because refresh-only cannot update managed input attributes (like `tags`). Only computed attributes (like `tags_all`) are refreshed during a refresh-only run. A regular apply with updated config properly syncs both the configuration and state to match the actual cloud resources.
+
+If either step fails (e.g., credential issues, network problems, or provider errors), CMP gracefully falls back to marking the drift alert as resolved without updating Terraform state. The user's decision to accept drift is always honored. The next scheduled drift check will re-detect the drift if the state still diverges.
+
+**State Persistence by Backend Type:**
+- **S3 Backend:** When the workspace is configured with an S3 state backend, `terraform apply` writes the updated state directly to S3. CMP does not perform additional local state persistence — the remote state is authoritative.
+- **CMP-Managed (Local) Backend:** When using the built-in CMP state storage, the resulting state file is read and stored as a new version in DynamoDB after a successful apply.
+- **TFC Backend:** State is managed by Terraform Cloud. CMP updates it via the TFC state versions API.
 
 ### 10.5 State Backend Management
 
@@ -1189,6 +1238,9 @@ Configure rules that automatically trigger actions when specific events occur.
   - Logic: AND or OR
 - **Actions** — What to do when triggered
 - **Priority** — Execution order (lower = higher priority)
+- **Execution Mode** — `async` (default) or `sync`
+  - `async`: Fire-and-forget — actions are dispatched without waiting for completion
+  - `sync`: Wait for all actions to complete before the event pipeline proceeds to the next rule
 - **Enabled** — Toggle on/off
 
 **Available Actions:**

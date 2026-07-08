@@ -1197,6 +1197,23 @@ Define a form that users fill in when executing this action:
 | **Show Cost Estimate** | Display estimated cost before execution |
 | **Show Live Pricing** | Display real-time pricing information |
 
+#### Pre/Post Automation Flows
+
+Optionally attach flows that run before or after the main action execution. These work with any backend type (Native, Flow, or Terraform).
+
+| Field | Description |
+|-------|-------------|
+| **Pre-Flow ID** | A CMP Flow that executes **before** the main action. Use for validation, snapshots, notifications, or pre-checks. If the pre-flow fails, the main action is not executed. |
+| **Post-Flow ID** | A CMP Flow that executes **after** the main action completes. Use for cleanup, notifications, logging, or follow-up automation. |
+
+The full action context is passed as `form_data` to both pre and post flows, including:
+- Resource details (ID, name, type, provider, region, tags)
+- Operation being performed
+- User-supplied input parameters
+- For post-flows: the result of the main action (success/failure, outputs)
+
+This enables tasks within the flow to reference action context using standard form_data expressions (e.g., `{{form_data.resource_name}}`, `{{form_data.operation}}`).
+
 #### Terraform-Specific Settings
 
 When Backend Type is "Terraform":
@@ -1227,7 +1244,9 @@ When Backend Type is "Terraform":
 - Status Not In: `terminated`, `pending`
 
 **Backend Type:** Flow  
-**Flow ID:** `ec2-resize-flow`
+**Flow ID:** `ec2-resize-flow`  
+**Pre-Flow ID:** `ec2-create-snapshot-flow` *(creates a snapshot before resizing)*  
+**Post-Flow ID:** `notify-team-slack-flow` *(sends a Slack notification after resize completes)*
 
 **Input Schema:**
 
@@ -1442,10 +1461,23 @@ Once a workspace is active, you can perform Day 2 operations to modify the deplo
 1. Open the workspace detail page
 2. Click **Day 2 Operations**
 3. Select the operation type
-4. For Variable Update: modify the configurable variables
+4. For Variable Update: modify the configurable variables (see below)
 5. Add a description explaining the change
 6. Click **Apply**
 7. Monitor the execution progress
+
+**Variable Editor Types:**
+
+The Update Variables form automatically detects each variable's type and presents the appropriate editor:
+
+- **Scalar variables** (string, number, bool) — A standard text input showing the current value alongside the new value field.
+- **Map variables** (map, map(string), tags) — A key-value table editor that lets you:
+  - View all existing key-value entries in a table layout
+  - Edit keys and values inline
+  - Add new key-value pairs with the **+ Add Key** button
+  - Remove individual entries with the delete (×) button
+
+This is particularly useful for `tags` variables, where you can visually manage cloud resource tags without writing JSON manually.
 
 ---
 
@@ -1458,13 +1490,25 @@ Drift detection identifies when the actual cloud infrastructure has diverged fro
 - **No Drift** — Infrastructure matches the Terraform state
 - **Drift Detected** — Differences found between actual and expected state
 
+**Alert Behavior:**
+Each drift check that detects drift creates an alert. Only the most recent alert per workspace is shown as actionable — older unresolved alerts are automatically marked as **superseded** when a new detection runs. Superseded alerts are kept for history but no longer require action.
+
 **To check for drift:**
 1. Open the workspace detail page
 2. Click **Check Drift**
-3. Review the drift report showing what changed
+3. Review the drift report showing what changed — the summary shows counts for resource additions, changes, and destructions
 4. Choose to either:
    - **Reconcile** — Update Terraform state to match reality
    - **Re-apply** — Force infrastructure back to the desired state
+
+**Drift Report Summary:**
+
+When drift is detected, the report includes a breakdown:
+- **Additions** — Resources that exist in the cloud but are not tracked in Terraform state
+- **Changes** — Resources whose attributes differ from desired state
+- **Destructions** — Resources tracked in state that no longer exist in the cloud
+
+This helps users quickly assess the severity and nature of drift before deciding whether to reconcile or re-apply.
 
 ---
 
@@ -1936,6 +1980,7 @@ Navigate to **Provisioning → Event Automation → Create New Rule**.
 | **Name** | Yes | Rule name (e.g., "Notify on Failed Provisioning") |
 | **Description** | No | Explanation of what this rule does |
 | **Priority** | No | Lower number = higher priority. Default: 100. Rules are evaluated in priority order. |
+| **Execution Mode** | No | `async` (default) or `sync`. In async mode, actions fire without waiting for completion. In sync mode, the event pipeline waits for all actions to finish before proceeding to the next rule. Use sync when subsequent rules depend on this rule's side effects (e.g., a workflow must complete before a notification is sent). |
 | **Enabled** | Yes | Toggle to activate/deactivate |
 
 #### Event Type
