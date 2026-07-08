@@ -6,10 +6,11 @@ Lifecycle Hooks allow administrators and developers to attach pre/post automatio
 
 | Aspect | Detail |
 |--------|--------|
+| UI Navigation | Sidebar → **Lifecycle Hooks** (under Resources section, requires `resources` feature toggle) |
 | API Prefix | `/api/v1/lifecycle-hooks` |
 | Required Role | `admin` or `developer` |
 | License Gate | None (always available) |
-| Hook Behavior | Advisory (non-blocking) — hook failures do not prevent the main action |
+| Hook Behavior | Advisory — hook failures do not prevent the main action; results are tracked as step_log entries |
 
 ## Supported Operations
 
@@ -144,9 +145,35 @@ If both filters are empty, the hook fires for all resources on the matching oper
 ## Execution Behavior
 
 - Hooks are **advisory** — they do not block or gate the main action. If a pre-hook fails, the resource action still proceeds.
-- Hook flows execute **asynchronously** in the background. The main action does not wait for hooks to complete.
+- Hook flows execute **synchronously** — the system awaits each hook's completion before continuing. This enables capturing execution results and tracking them alongside the parent action.
 - Each hook execution creates a tracked execution record visible in the Executions list (catalog: `lifecycle-hook:{hook_id}`).
-- If the hook infrastructure itself is unavailable, operations continue without hooks.
+- Hook results are returned as **step_log entries** that can be appended to the parent execution's `step_logs` for unified tracking and visibility.
+- If the hook infrastructure itself is unavailable, operations continue without hooks (returns empty step_logs).
+
+### Step Log Format
+
+Each hook execution produces a step_log entry with this structure:
+
+```json
+{
+  "step_id": "pre_hook_abc12345",
+  "step_name": "PRE Hook: My Notification Flow",
+  "status": "success",
+  "started_at": "2025-01-15T10:30:00+00:00",
+  "completed_at": "2025-01-15T10:30:02+00:00",
+  "duration_ms": 2000,
+  "output": {
+    "hook_id": "hook-abc-123",
+    "flow_id": "flow-xyz-456",
+    "flow_name": "My Notification Flow",
+    "execution_id": "exec-789",
+    "description": "Notify Slack before stopping"
+  },
+  "error": null
+}
+```
+
+These entries integrate into the parent action's execution record, providing end-to-end visibility of hook activity within the resource operation timeline.
 
 ## Usage Examples
 
@@ -211,8 +238,8 @@ context = build_hook_context(
     tenant_id=tenant_id,
 )
 
-# Run pre-hooks (non-blocking)
-await run_pre_hooks("my_operation", context, tenant_id)
+# Run pre-hooks — returns step_log entries
+pre_logs = await run_pre_hooks("my_operation", context, tenant_id)
 
 # ... perform the main action ...
 
@@ -221,5 +248,15 @@ context.phase = "post"
 context.action_success = True
 context.action_result = {"instance_id": "i-abc123"}
 
-await run_post_hooks("my_operation", context, tenant_id)
+# Run post-hooks — returns step_log entries
+post_logs = await run_post_hooks("my_operation", context, tenant_id)
+
+# Append hook logs to the parent execution's step_logs for unified tracking
+all_step_logs = pre_logs + action_step_logs + post_logs
 ```
+
+### Return Type
+
+Both `run_pre_hooks` and `run_post_hooks` return `List[Dict[str, Any]]` — a list of step_log entries (one per hook that executed). If no hooks matched or the hook infrastructure was unavailable, an empty list is returned.
+
+This allows the calling code to integrate hook execution results into the parent action's step_logs, giving operators a single timeline view of the full operation including all hook activity.
