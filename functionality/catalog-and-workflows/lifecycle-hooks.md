@@ -29,6 +29,16 @@ Hooks can be attached to these resource lifecycle events:
 | `day2_resource_removal` | Removing resources from a Terraform stack |
 | `day2_destroy` | Full Terraform stack destruction |
 
+### Custom Operations
+
+In addition to the built-in operations above, you can define **custom operations** when creating a hook. In the UI, select **"+ Custom operation..."** from the operation dropdown and type any operation name. This is useful for:
+
+- Attaching hooks to custom resource actions specific to your organization
+- Supporting new resource operations before they are added to the built-in list
+- Integrating with external systems that trigger CMP operations via API
+
+Custom operations appear automatically in the operations dropdown for all users in the tenant once a hook references them (via the `/operations` endpoint). The backend accepts any non-empty string as an operation name.
+
 ## Phases
 
 Each hook runs in one of two phases:
@@ -37,6 +47,33 @@ Each hook runs in one of two phases:
 - **post** — Executes after the main action completes. Receives the action result (success/failure) in context. Useful for notifications, downstream automation, or cleanup.
 
 ## API Endpoints
+
+### List Available Operations
+
+```
+GET /api/v1/lifecycle-hooks/operations
+```
+
+Returns a sorted list of all available operations for lifecycle hooks. This combines the well-known operations (listed above) with any custom operations found in existing hooks for the tenant. Useful for populating dropdowns in the UI — new resource actions automatically appear once a hook references them.
+
+**Response:** `string[]`
+
+```json
+[
+  "day2_destroy",
+  "day2_resource_addition",
+  "day2_resource_removal",
+  "day2_variable_update",
+  "lease",
+  "restart",
+  "start",
+  "stop",
+  "terminate",
+  "unlease"
+]
+```
+
+> Custom operations created via hooks will also appear in this list automatically.
 
 ### List Hooks
 
@@ -72,7 +109,7 @@ Request body:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `operation` | string | Yes | One of the supported operations |
+| `operation` | string | Yes | A supported operation or any custom operation name |
 | `phase` | string | Yes | `pre` or `post` |
 | `flow_id` | string | Yes | ID of the automation flow to execute |
 | `enabled` | boolean | No | Default `true`. Set `false` to disable without deleting |
@@ -147,7 +184,7 @@ If both filters are empty, the hook fires for all resources on the matching oper
 - Hooks are **advisory** — they do not block or gate the main action. If a pre-hook fails, the resource action still proceeds.
 - Hook flows execute **synchronously** — the system awaits each hook's completion before continuing. This enables capturing execution results and tracking them alongside the parent action.
 - **Timeout:** Each hook phase (pre or post) has a **30-second execution timeout**. If hooks do not complete within 30 seconds, execution is cancelled and a timeout error step_log entry is recorded. This prevents hanging hooks from blocking resource operations indefinitely.
-- Each hook execution creates a tracked execution record visible in the Executions list (catalog: `lifecycle-hook:{hook_id}`).
+- Each hook execution creates a tracked execution record (catalog: `_internal:lifecycle-hook:{hook_id}`). These internal executions are **hidden from the top-level Executions list** to reduce noise — they appear as sub-steps within their parent resource action's execution record instead. This provides a cleaner execution history while maintaining full auditability through the parent action's step_logs.
 - Hook results are returned as **step_log entries** that can be appended to the parent execution's `step_logs` for unified tracking and visibility.
 - If the hook infrastructure itself is unavailable, operations continue without hooks (returns empty step_logs).
 
@@ -177,8 +214,52 @@ Each hook execution produces a step_log entry with this structure:
       "actor": "user@example.com"
     }
   },
+  "sub_steps": [
+    {
+      "step_id": "task_1",
+      "step_name": "Send Slack Notification",
+      "status": "success",
+      "duration_ms": 850,
+      "live_logs": [
+        { "timestamp": "2025-01-15T10:30:01Z", "stream": "stdout", "message": "Posting to #ops channel..." },
+        { "timestamp": "2025-01-15T10:30:01Z", "stream": "stdout", "message": "Message delivered successfully" }
+      ],
+      "output": { "channel": "#ops", "ts": "1705312201.000100" },
+      "error": null
+    }
+  ],
   "error": null
 }
+```
+
+### Nested Flow Tasks (Sub-Steps)
+
+When a lifecycle hook triggers an automation flow, the individual **flow tasks** are captured as `sub_steps` within the parent step_log entry. This provides granular visibility into what each task in the hook flow did.
+
+Each sub-step contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `step_id` | string | Unique identifier for the flow task |
+| `step_name` | string | Human-readable task name |
+| `status` | string | Task status: `pending`, `running`, `success`, `failed`, `skipped` |
+| `duration_ms` | number | Execution time in milliseconds |
+| `live_logs` | array | Real-time log entries with `timestamp`, `stream` (stdout/stderr), and `message` |
+| `output` | object | Task output data (if any) |
+| `error` | string | Error message if the task failed |
+
+#### Viewing Sub-Steps in the UI
+
+On the **Executions** page, lifecycle hook step_log entries that contain `sub_steps` display a collapsible **"Flow Tasks"** section. Each sub-step shows:
+
+- Status icon and colored badge matching the task status
+- Task name and execution duration
+- Expandable detail panel with:
+  - **Live logs** — terminal-style display with color-coded stdout (green) and stderr (red) entries
+  - **Output** — formatted JSON output from the task
+  - **Error** — error message highlighted in red (if applicable)
+
+This nested view allows operators to drill down from a high-level hook execution into the individual flow tasks without navigating away from the execution timeline.
 ```
 
 The `context` field contains the full `form_data` that triggered the hook, including resource details, provider, operation, and actor information. This is useful for debugging hook behavior and for audit trail purposes.

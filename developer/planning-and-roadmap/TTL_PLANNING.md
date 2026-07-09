@@ -169,7 +169,7 @@ A "Data Retention" tab is available under **Administration → Settings** (the l
 - Each table has a toggle (enabled/disabled), retention days input, and condition label
 - Admins can adjust retention periods and enable/disable per table
 - Saving applies TTL to DynamoDB tables automatically
-- Existing items without a `ttl` attribute are not affected until their next write/update
+- Existing items without a `ttl` attribute are filtered at read time using their `created_at` timestamp and the configured retention days (no write/update required)
 
 ### Backend Endpoints
 
@@ -225,6 +225,37 @@ response = table.query(
 )
 ```
 
+### Application-Level Filtering for Pre-Existing Records
+
+Records written before TTL stamping was implemented lack a `ttl` attribute. These items won't be auto-deleted by DynamoDB TTL. To ensure consistent retention behavior, the CRUD layer applies application-level filtering at read time:
+
+1. Items **with** a `ttl` attribute: filtered if `ttl <= now_epoch` (standard TTL check for DynamoDB's eventual deletion lag)
+2. Items **without** a `ttl` attribute: filtered based on their `created_at` timestamp plus the configured retention days
+
+```python
+# Example from crud/execution.py — filtering pre-existing records
+from app.services.data_retention import get_retention_days_for_table
+
+retention_days = await get_retention_days_for_table(TABLE_NAME)
+
+for item in items:
+    ttl_val = item.get("ttl")
+    if ttl_val:
+        # Standard: skip if DynamoDB TTL expired but not yet deleted
+        if int(ttl_val) <= now_epoch:
+            continue
+    elif retention_days is not None:
+        # Pre-existing record without TTL stamp: apply retention via created_at
+        created_at = item.get("created_at")
+        if created_at:
+            created_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            expiry_epoch = int(created_dt.timestamp()) + (retention_days * 86400)
+            if expiry_epoch <= now_epoch:
+                continue
+```
+
+This ensures that old records respect the admin-configured retention period even though they were never stamped with a `ttl` attribute. The filtering is applied in the `list_executions()` query function so that API responses and UI displays are consistent with the configured retention policy.
+
 ---
 
 ## Implementation Priority
@@ -277,18 +308,24 @@ For `inventory` records: when a resource is destroyed, the record gets a 30-day 
                         │  (5-min refresh)       │
                         └───────────────────────┘
                                    │
-                                   ▼
-┌─────────────────┐     ┌───────────────────────┐     ┌─────────────┐
-│  CRUD Functions │────▶│  stamp_ttl()          │────▶│  DynamoDB   │
-│  (on write)     │     │  stamp_ttl_conditional│     │  item.ttl   │
-└─────────────────┘     └───────────────────────┘     └─────────────┘
-                                                              │
-                                                              ▼
-                                                      ┌─────────────┐
-                                                      │  DynamoDB   │
-                                                      │  auto-delete│
-                                                      │  (≤48 hrs)  │
-                                                      └─────────────┘
+                   ┌───────────────┴───────────────┐
+                   ▼                               ▼
+┌─────────────────────────────┐     ┌─────────────────────────────┐
+│  CRUD Functions (on write)  │     │  CRUD Functions (on read)   │
+│  stamp_ttl()                │     │  filter by ttl OR created_at│
+│  stamp_ttl_conditional()    │     │  + retention_days           │
+└──────────────┬──────────────┘     └──────────────┬──────────────┘
+               ▼                                   ▼
+        ┌─────────────┐                    ┌─────────────────┐
+        │  DynamoDB   │                    │  Filtered API   │
+        │  item.ttl   │                    │  response       │
+        └──────┬──────┘                    └─────────────────┘
+               ▼
+        ┌─────────────┐
+        │  DynamoDB   │
+        │  auto-delete│
+        │  (≤48 hrs)  │
+        └─────────────┘
 ```
 
 ---
