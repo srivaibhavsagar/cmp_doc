@@ -10,6 +10,7 @@ All backend jobs run as asyncio tasks spawned at application startup via `start_
 
 | # | Job Name | Interval | First Run Delay | Service | Description |
 |---|----------|----------|-----------------|---------|-------------|
+| 0 | **Leader Renewal** | Every **30 seconds** | Immediately | `distributed_lock.renew_leader_lock` | Renews the scheduler leader lock in Redis. Only the node holding the lock executes jobs 1–8. Logs `NODE_ID` at startup for traceability. If renewal fails, the node yields leadership. |
 | 1 | **Resource Sync** | Every **15 minutes** | 30s after startup | `sync_service.sync_all_credentials` | Fetches live resources from all connected cloud accounts (AWS, Azure, GCP) and populates the `resource_cache` table. Discovers new resources and removes stale ones. |
 | 2 | **Lifecycle Check** | Every **1 hour** | 40s after startup | `lifecycle_manager.check_expiring_resources` | Marks inventory items past their `expire_date` as EXPIRED. Sends 7-day, 3-day, and 1-day advance warning notifications to resource owners. Detects orphan cloud resources. |
 | 3 | **Cron Scheduler** | Every **1 minute** | 50s after startup | `cron_scheduler.run_due_scheduled_jobs` | Evaluates cron expressions on all active Scheduled Jobs and triggers catalog executions when a job is due. |
@@ -26,6 +27,19 @@ In addition to scheduled background loops, certain cost operations are triggered
 | Trigger | Service | Description |
 |---------|---------|-------------|
 | **Resource Termination** | `cost_snapshot.snapshot_resource_on_delete` | When a resource is destroyed (manually or via lease expiry), captures a final termination snapshot with the resource's total lifetime cost. Calculates elapsed hours since provisioning × hourly rate and writes a `termination` type entry to the `cost_ledger` table. Ensures cost analytics reflect full spend for deleted resources even between daily snapshots. |
+
+### Leader Election (Multi-Node)
+
+In multi-node deployments, only **one node** should run background scheduler loops to prevent duplicate job executions. The scheduler uses the distributed lock service (`services/distributed_lock.py`) to elect a single leader.
+
+- **Dedicated task:** `_leader_renewal_loop` is the first background task spawned by `start_scheduler()`. It acquires and continuously renews the leader lock.
+- Lock name: `"scheduler"`
+- TTL: 90 seconds (renewed every 30s)
+- Fallback: If Redis is unavailable, all nodes assume leadership (single-node mode)
+- Recovery: If the leader crashes, another node acquires the lock after TTL expiry
+- **Observability:** At startup, each node logs its `NODE_ID` (from `distributed_lock.NODE_ID`) alongside all job intervals. Use this to identify which node currently holds leadership in aggregated logs.
+
+See [DISTRIBUTED-LOCK-GUIDE.md](./DISTRIBUTED-LOCK-GUIDE.md) for full API reference and usage patterns.
 
 ### Configuration Constants
 
@@ -51,6 +65,7 @@ INITIAL_STARTUP_DELAY_SECONDS = 30    # Wait for DB tables/seeds
 | **Cloud Pricing** | 1 hour (3600s) | `services/cloud_pricing.py` | Caches hourly rate lookups from AWS/Azure/GCP pricing APIs |
 | **SSO State** | 5 minutes (300s) | `services/sso_service.py` (Redis) | Stores OAuth state parameter during SSO login flow |
 | **Migration Lock** | 10 minutes (600s) | `services/migration_engine.py` (Redis) | Prevents concurrent schema migrations |
+| **Distributed Leader Lock** | 60–90 seconds | `services/distributed_lock.py` (Redis) | Leader election for scheduler and singleton operations across nodes |
 | **Token Blacklist** | Token remaining lifetime | `core/token_blacklist.py` (Redis) | Tracks revoked JWT tokens until natural expiry |
 
 ---
@@ -106,7 +121,7 @@ Workspaces set `drift_detection_interval_hours` via the API, and the service che
 | **Every 1 second** | Execution detail polling, execution list polling (active only), approval SLA countdown |
 | **Every 5 seconds** | Order detail polling (provisioning), Terraform workspace polling (transitional) |
 | **Every 15 seconds** | Container monitoring (opt-in), approval timeout check |
-| **Every 30 seconds** | System status refresh, executions inventory lookup |
+| **Every 30 seconds** | System status refresh, executions inventory lookup, **leader renewal (Redis lock)** |
 | **Every 1 minute** | Cron scheduler, report delivery |
 | **Every 5 minutes** | Approval SLA enforcement |
 | **Every 10 minutes** | Budget spend sync |

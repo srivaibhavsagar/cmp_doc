@@ -521,7 +521,7 @@ pending → running → success
 - Dry-run mode (preview without executing)
 - Step-level retry for failed executions
 - Resubmit completed/failed/cancelled executions as a brand new execution
-- Cancel running executions
+- Cancel running executions (pending steps are skipped immediately via pre-step cancellation checks)
 
 **Execution Detail View:**
 - Step timeline with status indicators
@@ -1779,7 +1779,7 @@ All authenticated routes include the tenant slug:
 | POST | `/tasks/{id}/run` | Execute task |
 | CRUD | `/workflows` | Workflow management |
 | CRUD | `/flows` | Flow management |
-| GET | `/executions` | List executions |
+| GET | `/executions` | List executions (most recent first, max 200) |
 | GET | `/executions/{id}` | Execution detail |
 | POST | `/executions/{id}/cancel` | Cancel execution |
 | POST | `/executions/{id}/retry` | Retry failed execution |

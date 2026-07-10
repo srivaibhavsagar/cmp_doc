@@ -738,12 +738,14 @@ After creating a Flow, go to the Catalog Item's settings and set the **Linked Fl
 
 Navigate to **Executions** from the main menu (or **Provisioning → Executions** for Admin/Developer).
 
-The executions list shows all your provisioning runs with:
+The executions list shows your provisioning runs sorted **most recent first**, with:
 - Catalog item name
 - Status badge (Pending, Running, Success, Failed, Cancelled)
 - Submitted by (username)
 - Start time and duration
 - Cloud provider icon
+
+> **Note:** The list displays up to 200 executions by default. For tenants with large execution histories, older runs may not appear in the initial listing — use status or date filters to narrow results.
 
 **Filtering options:**
 - By status (Pending, Running, Success, Failed, Cancelled)
@@ -824,7 +826,8 @@ For running or pending executions:
 2. Click **Cancel Execution**
 3. Confirm the cancellation
 4. The execution status changes to "Cancelled"
-5. Any in-progress cloud operations may need manual cleanup
+5. Any step that has not yet started is skipped immediately — the orchestrator checks for cancellation before each step begins, so pending steps exit without performing any work
+6. A step that is already in-flight will run to completion; any resulting cloud operations may need manual cleanup
 
 ---
 
