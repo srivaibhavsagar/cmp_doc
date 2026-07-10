@@ -1343,6 +1343,8 @@ System-wide audit trail showing all events with:
 - Full metadata
 - Filtering by type, date range, actor, resource
 
+**Default date range:** The event log defaults to showing the last 7 days for performance. To view older events, explicitly set a `date_from` filter (e.g., `2020-01-01` to fetch all history). The API response includes `date_from` and `date_to` fields indicating the active date range.
+
 ---
 
 ## 14. Administration

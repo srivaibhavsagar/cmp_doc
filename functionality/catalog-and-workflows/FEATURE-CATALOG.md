@@ -300,7 +300,7 @@ CMP uses feature keys in the license to control what capabilities are available.
 - `GET /api/v1/events/rules/:id` — Get rule details
 - `PUT /api/v1/events/rules/:id` — Update rule
 - `DELETE /api/v1/events/rules/:id` — Delete rule
-- `GET /api/v1/events/log` — Event log (history of triggered events)
+- `GET /api/v1/events/log` — Event log (history of triggered events; defaults to last 7 days)
 
 **What users can do:**
 - Define event rules (e.g., "when a resource is created, notify Slack")
