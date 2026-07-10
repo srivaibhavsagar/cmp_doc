@@ -224,9 +224,19 @@ sudo docker compose up -d
 sudo docker compose ps
 ```
 
-**Step 2: Copy backup file into the backend container**
+**Step 2: Copy backup file to the target VM and into the backend container**
+
+From your local machine, transfer the backup to the target VM first, then into the container:
 
 ```bash
+# Transfer from local to the target VM
+scp -i <ssh-key-path> /path/to/cmp-full-backup.json <admin_username>@<new-server-ip>:/tmp/cmp-full-backup.json
+
+# SSH into the target VM
+ssh -i <ssh-key-path> <admin_username>@<new-server-ip>
+
+# Copy from VM into the backend container
+cd /opt/cmp
 sudo docker compose cp /tmp/cmp-full-backup.json backend:/tmp/cmp-full-backup.json
 ```
 

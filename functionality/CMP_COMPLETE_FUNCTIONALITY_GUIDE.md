@@ -1445,7 +1445,7 @@ Configure webhook endpoints that external systems can call to trigger CMP action
 
 **Feature Toggle:** `chatbot`  
 **Access:** All authenticated users  
-**Shortcut:** ⌘K (Mac) / Ctrl+K (Windows)
+**Shortcut:** ⌘J (Mac) / Ctrl+J (Windows)
 
 ### Overview
 
@@ -1496,7 +1496,8 @@ If a policy violation or quota limit blocks the request, the assistant returns a
 - Context pill showing current page, role, and selected resource
 - Clickable suggestion chips for follow-up actions
 - Persistent conversation history per user
-- Toggle via ⌘K shortcut or nav bar button
+- Toggle via ⌘J shortcut or nav bar button
+- Keyboard shortcut hints displayed in the application footer on desktop (⌘K for Search, ⌘J for AI)
 
 ---
 

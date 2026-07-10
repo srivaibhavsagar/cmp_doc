@@ -3088,7 +3088,10 @@ When you provision a resource through the AI Assistant, the same governance rule
 
 | Shortcut | Action |
 |----------|--------|
-| `⌘K` / `Ctrl+K` | Toggle AI Assistant |
+| `⌘K` / `Ctrl+K` | Open Search / Command Palette |
+| `⌘J` / `Ctrl+J` | Open AI Assistant Panel |
+
+> **Tip:** These shortcuts are displayed in the application footer on desktop for quick reference.
 
 ### Status Color Codes
 
