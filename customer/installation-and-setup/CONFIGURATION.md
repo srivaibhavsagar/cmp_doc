@@ -144,6 +144,12 @@ Application cannot start. Please set the above values in your .env file or envir
 | `TEAMS_WEBHOOK_URL` | URL | No | — | Microsoft Teams webhook (sensitive) | `https://outlook.office.com/...` |
 | `PAGERDUTY_ROUTING_KEY` | string | No | — | PagerDuty routing key (sensitive) | `abc123...` |
 
+### Performance Tuning
+
+| Key | Type | Required | Default | Description | Example |
+|-----|------|----------|---------|-------------|---------|
+| `CMP_THREAD_POOL_SIZE` | integer | No | `20` | Max threads in the async executor pool. Controls how many DynamoDB (and other blocking I/O) operations can run in parallel per backend worker process. Increase for high-concurrency deployments; reduce on memory-constrained hosts. | `40` |
+
 ### Resource Limits (Container Overrides)
 
 | Key | Type | Required | Default | Description | Example |

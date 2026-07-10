@@ -103,7 +103,7 @@ if await is_leader("scheduler"):
 cmp:leader:{lock_name}
 ```
 
-The value stored is the node's unique `NODE_ID` (auto-generated UUID prefix or set via `CMP_NODE_ID` env var).
+The value stored is the node's unique `NODE_ID`, resolved automatically based on the deployment environment (see [Node ID Resolution](#node-id-resolution) below).
 
 ### Lock Lifecycle
 
@@ -126,7 +126,32 @@ All Redis errors return `True` (allow the operation). This ensures:
 | Environment Variable | Default | Description |
 |---------------------|---------|-------------|
 | `REDIS_URL` | *(none)* | Redis connection string. If unset, distributed locking is disabled (single-node mode). |
-| `CMP_NODE_ID` | Random 8-char UUID | Unique identifier for this process instance. Set explicitly in container orchestrators for predictable leader identity. |
+| `CMP_NODE_ID` | *(auto-detected)* | Explicit override for the node identifier. If unset, the service auto-detects from the runtime environment (see below). |
+| `CMP_THREAD_POOL_SIZE` | `20` | Max threads in the async executor pool. All DynamoDB and Redis operations (including lock acquire/renew) run through this pool via `run_in_executor`. Increase if lock operations are queuing behind DynamoDB calls under high concurrency. |
+
+### Node ID Resolution
+
+The `NODE_ID` is resolved at process startup using the following priority chain. The first match wins:
+
+| Priority | Source | Format | When it applies |
+|----------|--------|--------|-----------------|
+| 1 | `CMP_NODE_ID` env var | Exact value provided | Explicit override (any environment) |
+| 2 | EC2 Instance Metadata (IMDSv2) | `ec2-<instance-id>` | AWS EC2 instances (1s timeout) |
+| 3 | Azure IMDS (`vmId`) | `azure-<vm-id-prefix>` | Azure VMs (1s timeout) |
+| 4 | `ECS_CONTAINER_METADATA_URI_V4` | `ecs-<task-id-prefix>` | AWS ECS / Fargate tasks |
+| 5 | `K_REVISION` env var | `gcp-<revision-name>` | GCP Cloud Run instances |
+| 6 | Hostname (12-char hex) | `docker-<container-id>` | Docker containers (hostname = short container ID) |
+| 7 | `hostname-PID` | `<hostname>-<pid>` | VMs, bare-metal, local dev |
+
+**Examples:**
+- EC2 instance: `ec2-i-0a1b2c3d4e5f67890`
+- Azure VM: `azure-a1b2c3d4e5f6`
+- ECS task: `ecs-a1b2c3d4e5f6`
+- Cloud Run: `gcp-my-service-00042-zxq`
+- Docker: `docker-3f2a1b9c8d7e`
+- Local dev: `Vaibhavs-MacBook-14325`
+
+The EC2 and Azure checks use their respective Instance Metadata Services with a 1-second timeout, so they won't add startup latency on non-cloud environments. This makes log output and Redis key values immediately identifiable in multi-node deployments without requiring manual `CMP_NODE_ID` configuration.
 
 ---
 

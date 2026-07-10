@@ -37,7 +37,7 @@ In multi-node deployments, only **one node** should run background scheduler loo
 - TTL: 90 seconds (renewed every 30s)
 - Fallback: If Redis is unavailable, all nodes assume leadership (single-node mode)
 - Recovery: If the leader crashes, another node acquires the lock after TTL expiry
-- **Observability:** At startup, each node logs its `NODE_ID` (from `distributed_lock.NODE_ID`) alongside all job intervals. Use this to identify which node currently holds leadership in aggregated logs.
+- **Observability:** At startup, each node logs its `NODE_ID` (from `distributed_lock.NODE_ID`) alongside all job intervals. The node ID is auto-detected from the runtime environment (EC2 instance ID, Azure VM ID, ECS task ID, Cloud Run revision, Docker container ID, or hostname-PID). Use this to identify which node currently holds leadership in aggregated logs.
 
 See [DISTRIBUTED-LOCK-GUIDE.md](./DISTRIBUTED-LOCK-GUIDE.md) for full API reference and usage patterns.
 

@@ -2070,6 +2070,7 @@ All authenticated routes include the tenant slug:
 | `DYNAMODB_ENDPOINT` | DynamoDB endpoint URL | `http://dynamodb-local:8000` |
 | `REDIS_URL` | Redis connection URL | `redis://redis:6379` |
 | `GEMINI_API_KEY` | Google Gemini API key for AI assistant | (optional) |
+| `CMP_THREAD_POOL_SIZE` | Max threads for async DynamoDB operations per worker | `20` |
 | `SMTP_HOST` | SMTP server for email notifications | (optional) |
 | `SMTP_PORT` | SMTP port | `587` |
 | `SMTP_USER` | SMTP username | (optional) |
