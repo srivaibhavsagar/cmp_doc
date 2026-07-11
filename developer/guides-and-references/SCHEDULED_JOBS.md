@@ -28,6 +28,38 @@ In addition to scheduled background loops, certain cost operations are triggered
 |---------|---------|-------------|
 | **Resource Termination** | `cost_snapshot.snapshot_resource_on_delete` | When a resource is destroyed (manually or via lease expiry), captures a final termination snapshot with the resource's total lifetime cost. Calculates elapsed hours since provisioning × hourly rate and writes a `termination` type entry to the `cost_ledger` table. Ensures cost analytics reflect full spend for deleted resources even between daily snapshots. |
 
+### Startup Recovery Tasks
+
+These tasks run **once** during application startup (inside the `lifespan` context manager in `main.py`) before the scheduler loops begin. They handle crash recovery and ensure system consistency after restarts.
+
+| # | Task Name | Service | Description |
+|---|-----------|---------|-------------|
+| 1 | **Stale Execution Recovery** | `orchestrator.recover_stale_executions` | Detects executions stuck in `RUNNING` state from a previous process crash or unexpected restart. Intelligently determines the correct terminal state (`SUCCESS` or `FAILED`) based on step completion. Currently scoped to the `default` tenant. Logs recovered execution IDs at startup. |
+
+**Behavior:**
+- Queries all executions with `status = RUNNING` whose `last_heartbeat` (or `started_at` as fallback) exceeds the staleness threshold.
+- The heartbeat is updated on every step completion during normal execution, so a stale heartbeat indicates the worker died mid-execution.
+- **Intelligent status resolution:** If all steps completed successfully (status `success` or `skipped`), the execution is finalized as `SUCCESS`. Otherwise it is marked `FAILED`.
+- Any steps still in `running` state are individually marked `failed` with the error: "Execution stale — worker process likely terminated".
+- Syncs the linked order status via `order_service.sync_order_from_execution` after recovery.
+- Logs the count and IDs of recovered executions for operational visibility.
+- If no stale executions are found, no action is taken.
+- Errors on individual executions are caught and logged without preventing recovery of remaining executions.
+
+**Configuration:**
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `STALE_EXECUTION_THRESHOLD_SECONDS` | `600` (10 minutes) | Maximum time an execution can remain in RUNNING without a heartbeat before being considered stale. Adjust upward if your workflows include long-running steps (e.g., Terraform applies). |
+
+**When this matters:**
+- After a container/process crash mid-execution (e.g., OOM kill, node failure).
+- After a forced restart or deployment that interrupted running workflows.
+- In single-node deployments where there's no external orchestrator to detect zombie processes.
+- Prevents "stuck" executions from permanently blocking the UI or appearing as in-progress indefinitely.
+
+---
+
 ### Leader Election (Multi-Node)
 
 In multi-node deployments, only **one node** should run background scheduler loops to prevent duplicate job executions. The scheduler uses the distributed lock service (`services/distributed_lock.py`) to elect a single leader.
@@ -53,6 +85,7 @@ REPORT_DELIVERY_INTERVAL_SECONDS = 60 # 1 minute
 LEASE_RUN_HOUR_UTC = 2                # 02:00 UTC
 COST_SNAPSHOT_RUN_HOUR_UTC = 3        # 03:00 UTC
 INITIAL_STARTUP_DELAY_SECONDS = 30    # Wait for DB tables/seeds
+STALE_EXECUTION_THRESHOLD_SECONDS = 600  # 10 minutes (env-configurable)
 ```
 
 ---
@@ -131,3 +164,4 @@ Workspaces set `drift_detection_interval_hours` via the API, and the service che
 | **Daily at 02:00 UTC** | Lease expiry processing |
 | **Daily at 03:00 UTC** | Cost snapshot (live costs → ledger) |
 | **Per-workspace (1-168h)** | Terraform drift detection |
+| **Once at startup** | Stale execution recovery |

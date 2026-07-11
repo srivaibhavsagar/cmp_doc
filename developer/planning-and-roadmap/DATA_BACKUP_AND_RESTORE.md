@@ -232,6 +232,8 @@ From your local machine, transfer the backup to the target VM first, then into t
 # Transfer from local to the target VM
 scp -i <ssh-key-path> /path/to/cmp-full-backup.json <admin_username>@<new-server-ip>:/tmp/cmp-full-backup.json
 
+#scp -i /Users/vaibhavsrivastava/Downloads/cmptest.pem ../../../backups/cmp-full-backup.json cmpdev@35.232.129.58:/tmp/cmp-full-backup.json
+
 # SSH into the target VM
 ssh -i <ssh-key-path> <admin_username>@<new-server-ip>
 

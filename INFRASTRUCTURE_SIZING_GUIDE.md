@@ -125,11 +125,18 @@ Max comfortable users ≈ vCPUs × workers × 10–15
 │  └─────────────┘  └──────────────────────┘  │
 │                                              │
 │  ┌─────────────┐  ┌──────────────────────┐  │
-│  │  Redis      │  │  DynamoDB Local      │  │
-│  │  :6379      │  │  (or AWS DynamoDB)   │  │
+│  │  Execution  │  │  Redis               │  │
+│  │  Worker     │  │  :6379               │  │
+│  │  (queue)    │  │  (queue + cache)     │  │
 │  └─────────────┘  └──────────────────────┘  │
+│                                              │
+│  ┌──────────────────────────────────────┐   │
+│  │  DynamoDB Local (or AWS DynamoDB)    │   │
+│  └──────────────────────────────────────┘   │
 └─────────────────────────────────────────────┘
 ```
+
+> **Execution Worker:** A separate process that consumes provisioning jobs from a Redis queue (`cmp:execution_queue`). Runs alongside the API but decoupled — API deploys don't interrupt in-flight executions. See [EXECUTION-WORKER-GUIDE.md](developer/guides-and-references/EXECUTION-WORKER-GUIDE.md) for details.
 
 **Configuration:**
 ```yaml
@@ -223,6 +230,7 @@ How many concurrent users?
 - Token blacklist (logout): ~100 bytes × active sessions
 - Rate limit counters: ~50 bytes × endpoints × IPs
 - Shared cache (dashboard stats, cost summary): ~10–50 KB per tenant
+- Execution queue (`cmp:execution_queue`): ~1–5 KB per pending job (transient)
 - Event bus pub/sub: ephemeral (no storage)
 - Scheduler leader lock: ~100 bytes
 
@@ -287,9 +295,10 @@ How many concurrent users?
 |----------|---------|-------------|
 | `WEB_CONCURRENCY` | 2 | Uvicorn worker count (set to vCPU count) |
 | `CMP_THREAD_POOL_SIZE` | 20 | Async thread pool size per worker |
-| `REDIS_URL` | redis://redis:6379/0 | Shared Redis for cache, locks, events |
+| `REDIS_URL` | redis://redis:6379/0 | Shared Redis for cache, locks, events, and execution queue |
 | `CMP_NODE_ID` | (auto-detected) | Node identifier for logs |
 | `DYNAMODB_ENDPOINT` | (AWS default) | DynamoDB endpoint URL |
+| `WORKER_MAX_CONCURRENT` | 3 | Max parallel executions per execution worker process |
 
 ---
 
