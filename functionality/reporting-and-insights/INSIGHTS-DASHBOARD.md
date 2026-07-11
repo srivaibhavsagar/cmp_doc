@@ -105,12 +105,20 @@ View cost trends over time broken down by cloud provider (AWS, Azure, GCP). Incl
 
 ### Cost Anomaly Detection
 
-Automatically identifies unusual spending patterns:
-- Compares actual cost against expected cost (statistical baseline)
-- Reports deviation percentage
-- Categorizes severity (low, medium, high)
-- Optionally filters by resource type or cloud provider
-- Configurable threshold (default: 30% deviation)
+Automatically identifies unusual spending patterns using three detection methods:
+
+**Detection Types:**
+- **Spend Spike** — Current spend increased by ≥30% compared to the expected linear spend for the elapsed period. Severity is *critical* at ≥50%.
+- **Burn Rate Acceleration** — Actual budget utilization is ≥40% ahead of where it should be at this point in the period. Severity is *critical* at ≥80%.
+- **Projected Overrun** — Linear projection forecasts end-of-period spend at ≥120% of budget. Severity is *critical* at ≥150%.
+
+**Behavior:**
+- Runs per-budget during automatic budget sync (every 10 minutes) and on-demand via the anomaly scan endpoint
+- Categorizes severity as *warning* or *critical*
+- Emits `cost.anomaly.detected` events that trigger notifications, webhooks, and automation rules
+
+**Cooldown (duplicate suppression):**
+Once an anomaly notification is emitted for a specific budget and anomaly type, it will not be re-emitted for **6 hours**. This prevents notification flooding from the recurring sync loop while still alerting promptly when a new anomaly type appears or the cooldown expires.
 
 ### Top Cost Consumers
 

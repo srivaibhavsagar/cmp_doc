@@ -41,10 +41,10 @@ The following items from the original audit have been fully implemented and are 
 **Gap:** Interval-based polling is sluggish for state transitions (pending → running). Users who just provisioned a VM wait up to 60s to see the change.
 **Improvement:** Reduce polling interval to 5s when resource is in a transitional state (pending, stopping, starting), or implement Server-Sent Events for real-time push updates.
 
-### 2. Cost Anomaly Detection
-**Current state:** Budget sync emits `COST_ANOMALY_DETECTED` when thresholds are breached.
-**Gap:** No statistical anomaly detection (e.g., spend spike > 30% week-over-week). Only threshold-based.
-**Improvement:** Add a scheduled service that compares daily/weekly spend against rolling averages and flags anomalies. Surface anomalies on the dashboard and in notifications.
+### 2. Cost Anomaly Detection ✅ Implemented
+**Current state:** Budget sync runs statistical anomaly detection comparing current spend against expected linear spend. Detects three anomaly types: spend spike (≥30% above expected), burn rate acceleration (≥40% ahead of schedule), and projected overrun (≥120% of budget at period end). A 6-hour cooldown window per budget+type prevents duplicate notifications from the 10-minute sync loop.
+**Gap:** ~~No statistical anomaly detection.~~ — Resolved.
+**Remaining:** Consider adding per-resource anomaly detection (individual resource cost spikes beyond budget-level analysis).
 
 ### 3. Per-Resource Cost Attribution
 **Current state:** `LiveCostWidget` shows per-resource hourly projections. `ResourceDetail` shows cost estimates for actions.
