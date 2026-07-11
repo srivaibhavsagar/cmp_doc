@@ -118,7 +118,7 @@ Automatically identifies unusual spending patterns using three detection methods
 - Emits `cost.anomaly.detected` events that trigger notifications, webhooks, and automation rules
 
 **Cooldown (duplicate suppression):**
-Once an anomaly notification is emitted for a specific budget and anomaly type, it will not be re-emitted for **6 hours**. This prevents notification flooding from the recurring sync loop while still alerting promptly when a new anomaly type appears or the cooldown expires.
+Once an anomaly notification is emitted for a specific budget and anomaly type, it will not be re-emitted for **24 hours**. This prevents notification flooding from the recurring sync loop while still alerting promptly when a new anomaly type appears or the cooldown expires.
 
 ### Top Cost Consumers
 

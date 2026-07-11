@@ -42,7 +42,7 @@ The following items from the original audit have been fully implemented and are 
 **Improvement:** Reduce polling interval to 5s when resource is in a transitional state (pending, stopping, starting), or implement Server-Sent Events for real-time push updates.
 
 ### 2. Cost Anomaly Detection ✅ Implemented
-**Current state:** Budget sync runs statistical anomaly detection comparing current spend against expected linear spend. Detects three anomaly types: spend spike (≥30% above expected), burn rate acceleration (≥40% ahead of schedule), and projected overrun (≥120% of budget at period end). A 6-hour cooldown window per budget+type prevents duplicate notifications from the 10-minute sync loop.
+**Current state:** Budget sync runs statistical anomaly detection comparing current spend against expected linear spend. Detects three anomaly types: spend spike (≥30% above expected), burn rate acceleration (≥40% ahead of schedule), and projected overrun (≥120% of budget at period end). A 24-hour cooldown window per budget+type prevents duplicate notifications from the 10-minute sync loop.
 **Gap:** ~~No statistical anomaly detection.~~ — Resolved.
 **Remaining:** Consider adding per-resource anomaly detection (individual resource cost spikes beyond budget-level analysis).
 

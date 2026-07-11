@@ -2049,7 +2049,7 @@ Select which platform event triggers this rule. Available event types (60+):
 **Cost Events:**
 - cost.threshold.exceeded — Budget threshold breached
 - cost.estimate.generated — Cost estimate calculated
-- cost.anomaly.detected — Unusual spending pattern detected (spend spike, burn rate acceleration, or projected overrun). Subject to a 6-hour cooldown per budget to prevent duplicate notifications.
+- cost.anomaly.detected — Unusual spending pattern detected (spend spike, burn rate acceleration, or projected overrun). Subject to a 24-hour cooldown per budget to prevent duplicate notifications.
 
 **Terraform Events:**
 - terraform.action.started / terraform.action.completed / terraform.action.failed
